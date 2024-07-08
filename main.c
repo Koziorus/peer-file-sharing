@@ -9,7 +9,7 @@ typedef enum
     INTEGER = 'i',
     LIST = 'l',
     DICTIONARY = 'd',
-    OTHER // string or binary
+    OTHER = 'o' // string or binary
 } ObjType;
 
 int is_digit(char c)
@@ -29,12 +29,6 @@ ObjType get_type(char token)
     }
 }
 
-// get offset after the jump over current object
-int b_jump_over_int(ObjType type, char* str)
-{
-    
-}
-
 // gets offset after the jump to the next object
 // type - jump over every type but the specified
 // if initially str is at the right type, go to the next obj of this type
@@ -42,7 +36,7 @@ int b_jump_to(ObjType type, char* str, int ignore_flag)
 {
     int offset = 0;
     int nesting = 0; // d d (2x nesting) i (3x nesting) e e (1x nesting) e 
-    for(int i = 0; str[offset] != '\0' && (get_type(str[offset]) != type || nesting != 0) || ignore_flag; i++)
+    for(int i = 0; (str[offset] != '\0' && get_type(str[offset]) != type) || nesting != 0 || ignore_flag; i++)
     {
         if(str[offset] == 'e')
         {
@@ -110,6 +104,12 @@ int b_get_list_offset(ObjType type, int count, char* str)
 
         if(index == count)
         {
+            // when searching for a list or a dictionary point at the first element
+            if(type == LIST || type == DICTIONARY)
+            {
+                global_offset++;
+            }
+
             return global_offset;
         }
 
@@ -124,23 +124,58 @@ int b_get_dict_offset(ObjType type, char key[MAX_STR_LEN])
 
 }
 
-int b_get_int(char bencoded_str[MAX_STR_LEN], char path[MAX_STR_LEN])
+/*
+list:
+number.type
+
+dictionary:
+key
+
+example of a nested integer path:
+1.l/2.d/first/inner/0.d/in_dict/3.i
+*/
+
+
+//1.d/yky
+void b_get(char path[MAX_STR_LEN], char* str, char* out)
 {
+    int current_type = LIST; // we assume the whole string is a big list
+    for(int i = 0; path[i] != '\0'; i++)
+    {
+        if(current_type == LIST)
+        {
+            char str_count[MAX_STR_LEN];
+            int j;
+            for(j = 0; path[i+j] >= '0' && path[i+j] <= '9'; j++)
+            {
+                str_count[j] = path[i];
+            }
+            str_count[j] = '\0';
 
-}
+            int count = atoi(str_count);
 
-void b_get_other(char out[MAX_STR_LEN])
-{
+            i += j + 1; // skips the number and '.'
 
+            current_type = (ObjType)path[i];
+
+            i++; // skip '/'
+        
+            str += b_get_list_offset(current_type, count, str); // go to the first object of the list
+        }
+    }
+
+    printf("%s", str);
 }
 
 int main(int argc, char *argv[])
 {
-    char encoded_str[MAX_STR_LEN] = "dei34ed4:abcdd3:]]]ei55eei9eli3ee";
+    char encoded_str[MAX_STR_LEN] = "l4:wert2:pll3:qweeei4444444444444edeee";
     //strcpy(encoded_str, argv[1]); 
 
-    int offset = b_get_list_offset(LIST, 0, encoded_str);
-    printf("%d %c\n", offset, encoded_str[offset]);
+    // int offset = b_get_list_offset(LIST, 0, encoded_str);
+    // printf("%d %c\n", offset, encoded_str[offset]);
+
+    b_get("0.l/0.l/0.i", encoded_str, NULL);
 
     return 0;
 }

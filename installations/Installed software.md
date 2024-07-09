@@ -1,0 +1,7 @@
+- vc redist
+- obsidian
+- ~~virtualbox~~
+- ?python?
+- utorrent
+- WSL, and its applications
+- vscode

@@ -1,0 +1,22 @@
+{
+	"nodes":[
+		{"id":"50a1d5ace00add70","x":-840,"y":-640,"width":520,"height":760,"type":"group","label":"Implement BitTorrent 2001 (client)"},
+		{"id":"ddf82a38c4ba4c0e","type":"text","text":"Implement a tracker","x":100,"y":-235,"width":250,"height":60},
+		{"id":"3bd7bc0edde38db7","type":"text","text":"Construct a virtual network with virtual peers","x":100,"y":-61,"width":250,"height":60},
+		{"id":"a444c3251ec39ba9","type":"text","text":"Download a torrent using a created virtual tracker","x":100,"y":140,"width":250,"height":60},
+		{"id":"af51c25f01f3d2ee","type":"text","text":"Add extensions","x":520,"y":-235,"width":250,"height":60},
+		{"id":"420756747cff5bb4","type":"text","text":"Download a real torrent","x":-280,"y":-235,"width":250,"height":60},
+		{"id":"be5fcaa7eabb8a6e","type":"text","text":"Add pipelining","x":-280,"y":-121,"width":250,"height":60},
+		{"id":"3a714566f394fcc7","type":"text","text":"Start learning","x":-1320,"y":-295,"width":250,"height":60,"color":"4"},
+		{"id":"e52dfdeb24f692b3","x":-720,"y":-600,"width":250,"height":60,"type":"text","text":"Implement bencoding"}
+	],
+	"edges":[
+		{"id":"91af5cc356dd64c1","fromNode":"ddf82a38c4ba4c0e","fromSide":"bottom","toNode":"3bd7bc0edde38db7","toSide":"top"},
+		{"id":"ac156555be35bc6c","fromNode":"3bd7bc0edde38db7","fromSide":"bottom","toNode":"a444c3251ec39ba9","toSide":"top"},
+		{"id":"5ad16417765492c9","fromNode":"a444c3251ec39ba9","fromSide":"right","toNode":"af51c25f01f3d2ee","toSide":"left"},
+		{"id":"e345d4ebf43f9dbb","fromNode":"420756747cff5bb4","fromSide":"bottom","toNode":"be5fcaa7eabb8a6e","toSide":"top"},
+		{"id":"2bbb40e893f36602","fromNode":"be5fcaa7eabb8a6e","fromSide":"right","toNode":"ddf82a38c4ba4c0e","toSide":"left"},
+		{"id":"002b1fe96b2a6b9a","fromNode":"3a714566f394fcc7","fromSide":"right","toNode":"50a1d5ace00add70","toSide":"left"},
+		{"id":"3440ea84f9760da9","fromNode":"50a1d5ace00add70","fromSide":"right","toNode":"420756747cff5bb4","toSide":"top"}
+	]
+}

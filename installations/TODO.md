@@ -1,0 +1,2 @@
+- [ ] Zsynchronizowac notatki obsidian
+- [ ] utworzyc unit testy do bencode

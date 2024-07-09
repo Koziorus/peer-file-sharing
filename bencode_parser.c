@@ -17,19 +17,6 @@ ObjType get_type(char token)
     }
 }
 
-// int read_number(char* src)
-// {
-//     char str_num[MAX_STR_LEN];
-//     int i;
-//     for(i = 0; is_digit(src[i]); i++)
-//     {
-//         str_num[i] = src[i];
-//     }
-//     str_num[i] = '\0';
-
-//     return atoi(str_num);
-// }
-
 int b_skip_obj(ObjType object_type, char* str)
 {
     int offset = 0;
@@ -293,6 +280,21 @@ void b_print_nesting(int nesting)
     }
 }
 
+int read_number(char* str, int* out)
+{
+    char str_num[MAX_STR_LEN];
+    int j;
+    for(j = 0; is_digit(str[j]); j++)
+    {
+        str_num[j] = str[j];
+    }
+    str_num[j] = '\0';
+
+    *out = atoi(str_num);
+
+    return j;
+}
+
 int b_print_list(char* str, int nesting)
 {
     int i = 0;
@@ -300,37 +302,8 @@ int b_print_list(char* str, int nesting)
     while(TRUE)
     {
         list_obj_type = get_type(str[i]);
-        if(list_obj_type == OTHER)
-        {
-            if(i != 0)
-            {
-                printf("\n");
-            }
-
-            char str_obj_len[MAX_STR_LEN];
-            int j;
-            for(j = 0; is_digit(str[i]); j++)
-            {
-                str_obj_len[j] = str[i];
-                i++;
-            }
-            str_obj_len[j] = '\0';
-
-            int obj_len = atoi(str_obj_len);
-
-            b_print_nesting(nesting);
-
-            printf("%s:", str_obj_len);
-
-            i++; // skip ':'
-
-            while(obj_len--)
-            {
-                printf("%c", str[i]);
-                i++;
-            }
-        }
-        else if(str[i] == OBJECT_END_TOKEN)
+        
+        if(str[i] == OBJECT_END_TOKEN)
         {
             return i;
         }
@@ -341,8 +314,38 @@ int b_print_list(char* str, int nesting)
                 printf("\n");
             }
 
-            i++;
-            i += b_print(str + i, nesting, list_obj_type);
+            if(list_obj_type == OTHER)
+            {
+
+                // TODO: replace those kind of pieces of code with read_number()
+                char str_obj_len[MAX_STR_LEN];
+                int j;
+                for(j = 0; is_digit(str[i]); j++)
+                {
+                    str_obj_len[j] = str[i];
+                    i++;
+                }
+                str_obj_len[j] = '\0';
+
+                int obj_len = atoi(str_obj_len);
+
+                b_print_nesting(nesting);
+
+                printf("%s:", str_obj_len);
+
+                i++; // skip ':'
+
+                while(obj_len--)
+                {
+                    printf("%c", str[i]);
+                    i++;
+                }
+            }
+            else 
+            {
+                i++;
+                i += b_print(str + i, nesting, list_obj_type);
+            }
         }
     }
 
@@ -365,13 +368,13 @@ int b_print_dict(char* str, int nesting)
         }
         else
         {
+            if(i != 0)
+            {
+                printf("\n");
+            }
+
             if(list_obj_type == OTHER)
             {
-                if(i != 0)
-                {
-                    printf("\n");
-                }
-
                 char str_obj_len[MAX_STR_LEN];
                 int j;
                 for(j = 0; is_digit(str[i]); j++)
@@ -397,11 +400,6 @@ int b_print_dict(char* str, int nesting)
             }
             else
             {
-                if(i != 0)
-                {
-                    printf("\n");
-                }
-                
                 i++;
                 i += b_print(str + i, nesting + key_value_toggle, list_obj_type);
             }
@@ -416,6 +414,8 @@ int b_print_dict(char* str, int nesting)
 int b_print_integer(char* str, int nesting)
 {
     b_print_nesting(nesting);
+
+    char str_int[MAX_STR_LEN];
 
     int i = 0;
     while(str[i] != OBJECT_END_TOKEN)

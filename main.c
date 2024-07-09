@@ -155,33 +155,37 @@ int b_get_dict_offset(char* key, char* str)
         }
         else
         {
-            if(key_value_toggle == 0)
+            if(nesting == 0)
             {
-                // get key
-                char str_key_offset[MAX_STR_LEN];
-                int j;
-                for(j = 0; is_digit(str[offset]); j++)
+                if(key_value_toggle == 0)
                 {
-                    str_key_offset[j] = str[offset];
-                    offset++;
+                    // get key
+                    char str_key_offset[MAX_STR_LEN];
+                    int j;
+                    for(j = 0; is_digit(str[offset]); j++)
+                    {
+                        str_key_offset[j] = str[offset];
+                        offset++;
+                    }
+                    str_key_offset[j] = '\0';
+
+                    int key_offset = atoi(str_key_offset);
+
+                    strncpy(current_key, str + offset + 1, key_offset); // + 1 -> jump over ':'
+                    current_key[key_offset] = '\0'; // null terminate (we assume that the whole str doesnt end with a key)
+
+                    offset += key_offset + 1; // skip the key and ':'
                 }
-                str_key_offset[j] = '\0';
+                else
+                {
+                    offset += b_skip_obj(get_type(str[offset]), str + offset);
+                }
 
-                int key_offset = atoi(str_key_offset);
-
-                strncpy(current_key, str + offset + 1, key_offset); // + 1 -> jump over ':'
-                current_key[key_offset] = '\0'; // null terminate (we assume that the whole str doesnt end with a key)
-
-                offset += key_offset + 1; // skip the key and ':'
+                key_value_toggle = (key_value_toggle ? 0 : 1);
             }
             else
             {
                 offset += b_skip_obj(get_type(str[offset]), str + offset);
-            }
-
-            if(nesting == 0)
-            {
-                key_value_toggle = (key_value_toggle ? 0 : 1);
             }
         }
     }
@@ -201,14 +205,14 @@ example of a nested integer path:
 */
 
 //1.d/yky
-void b_get(char path[MAX_STR_LEN], char* str, char* out)
+void b_get(char* path, char* str, char* out)
 {
-    int current_type = LIST; // we assume the whole string is a big list
+    int container_type = LIST; // we assume the whole string is a big list
     // i++ to skip PATH_DELIMETER
     int i = 0;
     while(path[i] != '\0')
     {
-        if(current_type == LIST)
+        if(container_type == LIST)
         {
             char str_count[MAX_STR_LEN];
             int j;
@@ -222,13 +226,15 @@ void b_get(char path[MAX_STR_LEN], char* str, char* out)
 
             i += j + 1; // skips the number and '.'
 
-            current_type = (ObjType)path[i];
-
+            ObjType object_type = (ObjType)path[i];
+            
             i++; // skip object type
         
-            str += b_get_list_offset(current_type, count, str); // go to the first object of the list
+            str += b_get_list_offset(object_type, count, str); // go to the first object of the list
+        
+            container_type = object_type;
         }
-        else if(current_type == DICTIONARY)
+        else if(container_type == DICTIONARY)
         {
             char key[MAX_STR_LEN];
             int j;
@@ -241,23 +247,46 @@ void b_get(char path[MAX_STR_LEN], char* str, char* out)
             i += j; // skips key
 
             str += b_get_dict_offset(key, str);
+
+            container_type = LIST; // values are asasumed to be inside a list
+        }
+        else
+        {
+            exit(1); // wrong path format (ends in a container)
         }
 
         i++; // skip PATH_DELIMITER
     }
 
-    printf("%s", str);
+    char str_obj_len[MAX_STR_LEN];
+    int j;
+    for(j = 0; is_digit(*str); j++)
+    {
+        str_obj_len[j] = *str;
+        str++;
+    }
+    str_obj_len[j] = '\0';
+
+    str++; // skip ':'
+
+    int obj_len = atoi(str_obj_len);
+
+    strncpy(out, str, obj_len);
+
+    out[obj_len] = '\0';
 }
 
 int main(int argc, char *argv[])
 {
-    char encoded_str[MAX_STR_LEN] = "d8:announce41:http://bttracker.debian.org:6969/announce7:comment35:'Debian CD from cdimage.debian.org'13:creation datei1573903810e9:httpseedsl145:https://cdimage.debian.org/cdimage/release/10.2.0//srv/cdbuilder.debian.org/dst/deb-cd/weekly-builds/amd64/iso-cd/debian-10.2.0-amd64-netinst.iso145:https://cdimage.debian.org/cdimage/archive/10.2.0//srv/cdbuilder.debian.org/dst/deb-cd/weekly-builds/amd64/iso-cd/debian-10.2.0-amd64-netinst.isoe4:infod6:lengthi351272960e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi262144e6:piecesee";
+    char encoded_str[MAX_STR_LEN] = "d1:Al3:pore8:announce41:http://bttracker.debian.org:6969/announce7:comment35:'Debian CD from cdimage.debian.org'13:creation datei1573903810e4:infod6:lengthi351272960e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi262144e6:pieces3:ABCee";
     //strcpy(encoded_str, argv[1]); 
 
     // int offset = b_get_list_offset(LIST, 0, encoded_str);
     // printf("%d %c\n", offset, encoded_str[offset]);
 
-    b_get("0.d|info|piece length|", encoded_str, NULL);
+    char obj[MAX_STR_LEN];
+    b_get("0.d|A|0.l|0.o|", encoded_str, obj);
+    printf("%s\n", obj);
 
     return 0;
 }

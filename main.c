@@ -11,9 +11,11 @@ int main(int argc, char *argv[])
     // int offset = b_get_list_offset(LIST, 0, encoded_str);
     // printf("%d %c\n", offset, encoded_str[offset]);
 
-    char obj[MAX_STR_LEN];
-    b_get("0.d|A|0.l|0.o|", encoded_str, obj);
-    printf("%s\n", obj);
+    // char obj[MAX_STR_LEN];
+    // b_get("0.d|A|0.l|0.o|", encoded_str, obj);
+    // printf("%s\n", obj);
+
+    b_print("li69e4:bruki1ei900ee", 0, LIST);
 
     return 0;
 }

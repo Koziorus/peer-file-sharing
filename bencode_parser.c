@@ -17,6 +17,19 @@ ObjType get_type(char token)
     }
 }
 
+// int read_number(char* src)
+// {
+//     char str_num[MAX_STR_LEN];
+//     int i;
+//     for(i = 0; is_digit(src[i]); i++)
+//     {
+//         str_num[i] = src[i];
+//     }
+//     str_num[i] = '\0';
+
+//     return atoi(str_num);
+// }
+
 int b_skip_obj(ObjType object_type, char* str)
 {
     int offset = 0;
@@ -270,4 +283,94 @@ void b_get(char* path, char* str, char* out)
 
     strncpy(out, str, obj_len);
     out[obj_len] = '\0';
+}
+
+void b_print_nesting(int nesting)
+{
+    for(int j = 0; j < nesting; j++)
+    {
+        printf("\t");
+    }
+}
+
+
+int b_print_list(char* str, int nesting)
+{
+    int i = 0;
+    ObjType list_obj_type;
+    while(TRUE)
+    {
+        list_obj_type = get_type(str[i]);
+        if(list_obj_type == OTHER)
+        {
+            char str_obj_len[MAX_STR_LEN];
+            int j;
+            for(j = 0; is_digit(str[i]); j++)
+            {
+                str_obj_len[j] = str[i];
+                i++;
+            }
+            str_obj_len[j] = '\0';
+
+            int obj_len = atoi(str_obj_len);
+
+            b_print_nesting(nesting);
+            while(obj_len--)
+            {
+                printf("%c", str[i]);
+                i++;
+            }
+            printf("\n");
+        }
+        else if(str[i] == OBJECT_END_TOKEN)
+        {
+            return i;
+        }
+        else
+        {
+            i++;
+            i += b_print(str + i, nesting, list_obj_type);
+        }
+    }
+
+    return i;
+}
+
+int b_print_integer(char* str, int nesting)
+{
+    b_print_nesting(nesting);
+
+    int i = 0;
+    while(str[i] != OBJECT_END_TOKEN)
+    {
+        printf("%c", str[i]);
+        i++;
+    }
+
+    return i + 1; // + 1 -> skip OBJECT_END_TOKEN
+}
+
+int b_print(char* str, int nesting, ObjType type)
+{
+    char print[MAX_STR_LEN];
+
+    int i = 0;
+    if(type == LIST || type == DICTIONARY)
+    {
+        b_print_nesting(nesting);
+        printf("%c\n", LIST);
+        i += b_print_list(str + i, nesting + 1);
+        b_print_nesting(nesting);
+        printf("%c\n", OBJECT_END_TOKEN);
+    }
+    else if(type == INTEGER)
+    {
+        b_print_nesting(nesting);
+        printf("%c\n", INTEGER);
+        i += b_print_integer(str + i, nesting + 1);
+        printf("\n");
+        b_print_nesting(nesting);
+        printf("%c\n", OBJECT_END_TOKEN);
+    }
+
 }

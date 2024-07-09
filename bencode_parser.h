@@ -48,3 +48,5 @@ example of a nested integer path:
 */
 
 void b_get(char* path, char* str, char* out);
+
+int b_print(char* str, int nesting, ObjType type);

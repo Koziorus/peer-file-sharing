@@ -340,9 +340,73 @@ int b_print_list(char* str, int nesting)
             {
                 printf("\n");
             }
-            
+
             i++;
             i += b_print(str + i, nesting, list_obj_type);
+        }
+    }
+
+    return i;
+}
+
+int b_print_dict(char* str, int nesting)
+{
+    int i = 0;
+    ObjType list_obj_type;
+
+    int key_value_toggle = 0;
+
+    while(TRUE)
+    {
+        list_obj_type = get_type(str[i]);
+        if(str[i] == OBJECT_END_TOKEN)
+        {
+            return i;
+        }
+        else
+        {
+            if(list_obj_type == OTHER)
+            {
+                if(i != 0)
+                {
+                    printf("\n");
+                }
+
+                char str_obj_len[MAX_STR_LEN];
+                int j;
+                for(j = 0; is_digit(str[i]); j++)
+                {
+                    str_obj_len[j] = str[i];
+                    i++;
+                }
+                str_obj_len[j] = '\0';
+
+                int obj_len = atoi(str_obj_len);
+
+                b_print_nesting(nesting + key_value_toggle);
+
+                printf("%s:", str_obj_len);
+
+                i++; // skip ':'
+
+                while(obj_len--)
+                {
+                    printf("%c", str[i]);
+                    i++;
+                }
+            }
+            else
+            {
+                if(i != 0)
+                {
+                    printf("\n");
+                }
+                
+                i++;
+                i += b_print(str + i, nesting + key_value_toggle, list_obj_type);
+            }
+
+            key_value_toggle = (key_value_toggle ? 0 : 1);
         }
     }
 
@@ -371,9 +435,13 @@ int b_print(char* str, int nesting, ObjType type)
 
     b_print_nesting(nesting);
     printf("%c\n", type);
-    if(type == LIST || type == DICTIONARY)
+    if(type == LIST)
     {
         i += b_print_list(str + i, nesting + 1);
+    }
+    else if(type == DICTIONARY)
+    {
+        i += b_print_dict(str + i, nesting + 1);
     }
     else if(type == INTEGER)
     {

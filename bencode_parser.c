@@ -289,10 +289,9 @@ void b_print_nesting(int nesting)
 {
     for(int j = 0; j < nesting; j++)
     {
-        printf("\t");
+        printf("  ");
     }
 }
-
 
 int b_print_list(char* str, int nesting)
 {
@@ -303,6 +302,11 @@ int b_print_list(char* str, int nesting)
         list_obj_type = get_type(str[i]);
         if(list_obj_type == OTHER)
         {
+            if(i != 0)
+            {
+                printf("\n");
+            }
+
             char str_obj_len[MAX_STR_LEN];
             int j;
             for(j = 0; is_digit(str[i]); j++)
@@ -315,12 +319,16 @@ int b_print_list(char* str, int nesting)
             int obj_len = atoi(str_obj_len);
 
             b_print_nesting(nesting);
+
+            printf("%s:", str_obj_len);
+
+            i++; // skip ':'
+
             while(obj_len--)
             {
                 printf("%c", str[i]);
                 i++;
             }
-            printf("\n");
         }
         else if(str[i] == OBJECT_END_TOKEN)
         {
@@ -328,6 +336,11 @@ int b_print_list(char* str, int nesting)
         }
         else
         {
+            if(i != 0)
+            {
+                printf("\n");
+            }
+            
             i++;
             i += b_print(str + i, nesting, list_obj_type);
         }
@@ -355,22 +368,21 @@ int b_print(char* str, int nesting, ObjType type)
     char print[MAX_STR_LEN];
 
     int i = 0;
+
+    b_print_nesting(nesting);
+    printf("%c\n", type);
     if(type == LIST || type == DICTIONARY)
     {
-        b_print_nesting(nesting);
-        printf("%c\n", LIST);
         i += b_print_list(str + i, nesting + 1);
-        b_print_nesting(nesting);
-        printf("%c\n", OBJECT_END_TOKEN);
     }
     else if(type == INTEGER)
     {
-        b_print_nesting(nesting);
-        printf("%c\n", INTEGER);
         i += b_print_integer(str + i, nesting + 1);
-        printf("\n");
-        b_print_nesting(nesting);
-        printf("%c\n", OBJECT_END_TOKEN);
     }
 
+    printf("\n");
+    b_print_nesting(nesting);
+    printf("%c", OBJECT_END_TOKEN);
+
+    return i;
 }

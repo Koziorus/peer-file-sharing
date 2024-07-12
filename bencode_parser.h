@@ -32,9 +32,9 @@ int b_jump_to_type(ObjType type, char* str, int ignore_flag);
 // Gets offset of an object inside a list container
 // str - bencoded str offseted
 // we assume that the whole bencoded string is a list (usually with one element)
-int b_get_list_offset(ObjType type, int count, char* str);
+int b_get_in_list_offset(ObjType type, int count, char* str);
 
-int b_get_dict_offset(char* key, char* str);
+int b_get_in_dict_offset(char* key, char* str);
 
 /*
 list:
@@ -47,6 +47,8 @@ example of a nested integer path:
 2.d/first/0.d/inner/0.l/3.i
 */
 
-void b_get(char* path, char* str, char* out);
+int b_get_offset(char *path, char *str);
 
-int b_print(char* str, int nesting, ObjType type);
+void b_get(char *path, char *str, char *out);
+
+int b_print_tree(char* str, int nesting, ObjType type);

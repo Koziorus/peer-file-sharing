@@ -81,7 +81,7 @@ int b_jump_to_type(ObjType type, char* str, int ignore_flag)
 // Gets offset of an object inside a list container
 // str - bencoded str offseted
 // we assume that the whole bencoded string is a list (usually with one element)
-int b_get_list_offset(ObjType type, int count, char* str)
+int b_get_in_list_offset(ObjType type, int count, char* str)
 {
     int global_offset = 0;
     // index of an object in the list container
@@ -114,7 +114,7 @@ int b_get_list_offset(ObjType type, int count, char* str)
     return -1;
 }
 
-int b_get_dict_offset(char* key, char* str)
+int b_get_in_dict_offset(char* key, char* str)
 {
     int offset = 0;
     int nesting = 0; // example: d d (2x nesting) i (3x nesting) e e (1x nesting) e 
@@ -187,9 +187,11 @@ example of a nested integer path:
 1.l/2.d/first/inner/0.d/in_dict/3.i
 */
 
-//1.d/yky
-void b_get(char* path, char* str, char* out)
+
+int b_get_offset(char* path, char* str)
 {
+    int offset = 0; // string offset
+
     int container_type = LIST; // we assume the whole string is a big list
     // i++ to skip PATH_DELIMETER
     int i = 0;
@@ -213,7 +215,7 @@ void b_get(char* path, char* str, char* out)
             
             i++; // skip object type
         
-            str += b_get_list_offset(object_type, count, str); // go to the first object of the list
+            offset += b_get_in_list_offset(object_type, count, str + offset); // go to the first object of the list
         
             container_type = object_type;
         }
@@ -229,7 +231,7 @@ void b_get(char* path, char* str, char* out)
 
             i += j; // skips key
 
-            str += b_get_dict_offset(key, str);
+            offset += b_get_in_dict_offset(key, str + offset);
 
             container_type = LIST; // values are asasumed to be inside a list
         }
@@ -241,34 +243,42 @@ void b_get(char* path, char* str, char* out)
         i++; // skip PATH_DELIMITER
     }
 
+    return offset;
+}
+
+//1.d/yky
+void b_get(char* path, char* str, char* out)
+{
+    int offset = b_get_offset(path, str);
+
     int obj_len;
-    if(get_type(*str) == INTEGER)
+    if(get_type(str[offset]) == INTEGER)
     {
         int integer_ptr = 1; // skip INTEGER type token
-        while(str[integer_ptr] != OBJECT_END_TOKEN)
+        while(str[offset + integer_ptr] != OBJECT_END_TOKEN)
         {
             integer_ptr++;
         }
 
         obj_len = integer_ptr - 1; // -1 -> without OBJECT_END_TOKEN
     }
-    else if(get_type(*str) == OTHER)
+    else if(get_type(str[offset]) == OTHER)
     {
         char str_obj_len[MAX_STR_LEN];
         int j;
-        for(j = 0; is_digit(*str); j++)
+        for(j = 0; is_digit(str[offset]); j++)
         {
-            str_obj_len[j] = *str;
-            str++;
+            str_obj_len[j] = str[offset];
+            offset++;
         }
         str_obj_len[j] = '\0';
 
         obj_len = atoi(str_obj_len);
     }
 
-    str++; // skip ':' or OBJECT_END_TOKEN
+    offset++; // skip ':' or OBJECT_END_TOKEN
 
-    strncpy(out, str, obj_len);
+    strncpy(out, str + offset, obj_len);
     out[obj_len] = '\0';
 }
 
@@ -299,13 +309,13 @@ int b_print_list(char* str, int nesting)
 {
     int i = 0;
     ObjType list_obj_type;
-    while(TRUE)
+    while(str[i] != '\0')
     {
         list_obj_type = get_type(str[i]);
         
         if(str[i] == OBJECT_END_TOKEN)
         {
-            return i;
+            return i + 1;
         }
         else
         {
@@ -344,7 +354,7 @@ int b_print_list(char* str, int nesting)
             else 
             {
                 i++;
-                i += b_print(str + i, nesting, list_obj_type);
+                i += b_print_tree(str + i, nesting, list_obj_type);
             }
         }
     }
@@ -364,7 +374,7 @@ int b_print_dict(char* str, int nesting)
         list_obj_type = get_type(str[i]);
         if(str[i] == OBJECT_END_TOKEN)
         {
-            return i;
+            return i + 1;
         }
         else
         {
@@ -401,7 +411,7 @@ int b_print_dict(char* str, int nesting)
             else
             {
                 i++;
-                i += b_print(str + i, nesting + key_value_toggle, list_obj_type);
+                i += b_print_tree(str + i, nesting + key_value_toggle, list_obj_type);
             }
 
             key_value_toggle = (key_value_toggle ? 0 : 1);
@@ -427,7 +437,7 @@ int b_print_integer(char* str, int nesting)
     return i + 1; // + 1 -> skip OBJECT_END_TOKEN
 }
 
-int b_print(char* str, int nesting, ObjType type)
+int b_print_tree(char* str, int nesting, ObjType type)
 {
     char print[MAX_STR_LEN];
 

@@ -3,72 +3,6 @@
 #include <stdlib.h>
 #include "bencode_parser.h"
 
-void b_print(char* str)
-{
-    if(str[0] == '\0')
-    {
-        return;
-    }
-
-    b_print_tree(str, 0, LIST);
-    printf("\n");
-}
-
-// returns offset to the first character after the inserted object
-int b_insert_obj(char* str, int offset, char* str_obj, ObjType type)
-{
-    char str_A[MAX_STR_LEN] = "";
-    char str_B[MAX_STR_LEN] = "";
-    strncpy(str_A, str, offset); // abcdefgh
-    str_A[offset] = '\0';
-    strncpy(str_B, str + offset, strlen(str) - offset);
-    str_B[strlen(str) - offset] = '\0';
-
-    char str_whole_obj[MAX_STR_LEN];
-
-    if(type == LIST || type == DICTIONARY || type == INTEGER)
-    { 
-        sprintf(str_whole_obj, "%s", str_obj);
-    }
-    else
-    {
-        sprintf(str_whole_obj, "%d:%s", strlen(str_obj), str_obj);
-    }
-
-    sprintf(str, "%s%s%s", str_A, str_whole_obj, str_B);
-
-    int new_offset = offset + strlen(str_whole_obj);
-    return new_offset; 
-}
-
-// element is an object inside a list
-void b_insert_element(char* str, char* path, char* str_obj, ObjType type)
-{
-    int insert_offset = b_get_offset(path, str);
-    b_insert_obj(str, insert_offset, str_obj, type);
-}
-
-void b_insert_key_value(char* str, char* path, char* key, char* value, ObjType value_type)
-{
-    int insert_offset = b_get_offset(path, str);
-    insert_offset = b_insert_obj(str, insert_offset, key, OTHER);
-    b_insert_obj(str, insert_offset, value, value_type);
-}
-
-void b_insert_int()
-{
-
-}
-
-void b_insert_list()
-{
-
-}
-
-void b_insert_dict()
-{
-
-}
 
 int main(int argc, char *argv[])
 {
@@ -85,15 +19,19 @@ int main(int argc, char *argv[])
     // b_get("0.d|", encoded_str, obj);
     // printf("%s\n", obj);
 
-    char b_info_str[MAX_STR_LEN] = "de";
+    char b_info_str[MAX_STR_LEN];
+    b_create_list(b_info_str);
 
-    b_insert_key_value(b_info_str, "0.d|", "length", "567", OTHER);
-    b_insert_key_value(b_info_str, "0.d|", "name", "'debian'", OTHER);
+    b_insert_element(b_info_str, "0.l|", "length", OTHER);
+    b_insert_element(b_info_str, "0.l|", "name", OTHER);
+    b_insert_element(b_info_str, "0.l|", "AAA", OTHER);
 
-    char b_str[MAX_STR_LEN] = "de";
+    char b_str[MAX_STR_LEN];
+    b_create_dict(b_str);
 
-    b_insert_key_value(b_str, "0.d|", "announce", "hhtp", OTHER);
+    b_insert_key_value(b_str, "0.d|", "announce", "http", OTHER);
     b_insert_key_value(b_str, "0.d|", "info", b_info_str, DICTIONARY);
+    b_insert_int(b_str, "0.d|info|0.l|", -17);
     
     b_print(b_str);    
 
@@ -101,3 +39,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+

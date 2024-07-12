@@ -52,3 +52,17 @@ int b_get_offset(char *path, char *str);
 void b_get(char *path, char *str, char *out);
 
 int b_print_tree(char* str, int nesting, ObjType type);
+
+void b_print(char *str);
+
+int b_insert_obj(char *str, int offset, char *str_obj, ObjType type);
+
+void b_insert_element(char *str, char *path, char *str_obj, ObjType type);
+
+void b_insert_key_value(char *str, char *path, char *key, char *value, ObjType value_type);
+
+void b_insert_int(char *str, char *path, int integer);
+
+void b_create_list(char *list_out);
+
+void b_create_dict(char *dict_out);

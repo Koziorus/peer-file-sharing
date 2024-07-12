@@ -1,4 +1,4 @@
-#include "bencode_parser.h"
+#include "bencode.h"
 
 int is_digit(char c)
 {
@@ -288,21 +288,6 @@ void b_print_nesting(int nesting)
     {
         printf("  ");
     }
-}
-
-int read_number(char* str, int* out)
-{
-    char str_num[MAX_STR_LEN];
-    int j;
-    for(j = 0; is_digit(str[j]); j++)
-    {
-        str_num[j] = str[j];
-    }
-    str_num[j] = '\0';
-
-    *out = atoi(str_num);
-
-    return j;
 }
 
 int b_print_list(char* str, int nesting)

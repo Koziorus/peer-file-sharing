@@ -49,7 +49,7 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Daily log/Day 1 - 08.07.2024.md",
+                "file": "TODO.md",
                 "mode": "source",
                 "source": false
               }
@@ -134,7 +134,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Daily log/Day 1 - 08.07.2024.md",
+                "file": "TODO.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -151,7 +151,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Daily log/Day 1 - 08.07.2024.md",
+                "file": "TODO.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -174,7 +174,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "Daily log/Day 1 - 08.07.2024.md"
+                "file": "TODO.md"
               }
             }
           }
@@ -198,12 +198,12 @@
   },
   "active": "ac77d1b0641f80d8",
   "lastOpenFiles": [
+    "Sources.md",
+    "TODO.md",
+    "Daily log/Day 1 - 08.07.2024.md",
     "BitTorrent.md",
     "Installed software.md",
     "Roadmap.canvas",
-    "TODO.md",
-    "Daily log/Day 1 - 08.07.2024.md",
-    "Sources.md",
     "Daily log.md",
     "Daily log",
     "Welcome.md"

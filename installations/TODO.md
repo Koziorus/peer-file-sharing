@@ -1,2 +1,5 @@
 - [ ] Zsynchronizowac notatki obsidian
-- [ ] utworzyc unit testy do bencode
+- [ ] utworzyc unit testy 
+- [ ] dodac pare mozliwosci zrownoleglenia polaczen: polling, threads, select()
+- [ ] zmienic kod tak aby byl przenosny (dzialal na Linuxie jak i na Windowsie)
+- [ ] utworzyc ?task?/skrypt/... tak aby przy uzyciu komendy w Visual Studio Code odpalil sie program serwera i klienta (a przed tym zbudowaly sie oba kody)

@@ -1,114 +1,80 @@
-#define _POSIX_C_SOURCE 200809L // unlocks some functions (#ifdef)
-
-#include <stdio.h>
-#include <string.h>
 #include "bencode.h"
+#include <openssl/sha.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include <time.h>
-
-void failure(char* function_name)
+struct BencodeInfo
 {
-    fprintf(stderr, "%s() failed (%d) -> [%s]\n", function_name, errno, strerror(errno));
+    int length;
+    char name[MAX_STR_LEN];
+    int piece_length;
+    unsigned char* pieces; // hashes for pieces
+};
 
-    exit(1);
+struct BencodeTorrent
+{
+    char announce[MAX_STR_LEN];
+    char comment[MAX_STR_LEN];
+    int creation_date;
+    struct BencodeInfo info;
+};
+
+unsigned char info_hash[SHA_DIGEST_LENGTH];
+
+// works when the torrent describes one file (not a dictionary of files)
+// for a dictionary of files the `length` object is replaced with a `files` directory object -> (see bep_0003)
+void deserialize_bencode_torrent(struct BencodeTorrent* bencode_torrent, char* bencoded_str)
+{
+    b_get("0.d|announce|", bencoded_str, bencode_torrent->announce); 
+    b_get("0.d|comment|", bencoded_str, bencode_torrent->comment); 
+    
+    char creation_date_str[MAX_STR_LEN];
+    b_get("0.d|creation date|", bencoded_str, creation_date_str);
+    bencode_torrent->creation_date = atoi(creation_date_str);
+
+    char info_length_str[MAX_STR_LEN];
+    b_get("0.d|info|0.d|length|", bencoded_str, info_length_str); 
+    bencode_torrent->info.length = atoi(info_length_str);
+
+    b_get("0.d|info|0.d|name|", bencoded_str, bencode_torrent->info.name);
+
+    char info_piece_length_str[MAX_STR_LEN];
+    b_get("0.d|info|0.d|piece length|", bencoded_str, info_piece_length_str); 
+    bencode_torrent->info.piece_length = atoi(info_piece_length_str);
+
+    int number_of_pieces = bencode_torrent->info.length / bencode_torrent->info.piece_length; // == length of `pieces` object, but needs to calculated before serializing to allocate memory
+    bencode_torrent->info.pieces = (char*)malloc(SHA_DIGEST_LENGTH * number_of_pieces);
+    b_get("0.d|info|0.d|pieces|", bencoded_str, bencode_torrent->info.pieces);
 }
 
 int main(int argc, char *argv[])
 {
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET6;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+    char bencoded_str[MAX_STR_LEN] = "d8:announce41:http://bttracker.debian.org:6969/announce7:comment35:'Debian CD from cdimage.debian.org'13:creation datei1573903810e4:infod6:lengthi1e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi1e6:pieces20:0123456789ABCDEF7890ee";
 
-    struct addrinfo *bind_address;
+    b_print(bencoded_str);
+    printf("\n");
 
-    getaddrinfo(0, "8080", &hints, &bind_address);
+    struct BencodeTorrent bencode_torrent;
+    deserialize_bencode_torrent(&bencode_torrent, bencoded_str);
 
-    int socket_listen = socket(bind_address->ai_family, bind_address->ai_socktype, bind_address->ai_protocol);
+    printf("%.*s\n", SHA_DIGEST_LENGTH * bencode_torrent.info.length / bencode_torrent.info.piece_length, bencode_torrent.info.pieces);
 
-    if(socket_listen < 0)
+    char dict_str[10000];
+    b_get("0.d|info|0.d|", bencoded_str, dict_str);
+
+    SHA1((unsigned char *) dict_str, strlen(dict_str), info_hash);
+
+    for(int i = 0; i < SHA_DIGEST_LENGTH; i++)
     {
-        failure("socket");
+        printf("%02x", info_hash[i]);
     }
+    printf("\n");
 
-    int option = 0;
-    if(setsockopt(socket_listen, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&option, sizeof(option)) != 0)
-    {
-        failure("setsockopt");
-    }
-
-    if(bind(socket_listen, bind_address->ai_addr, bind_address->ai_addrlen) != 0)
-    {
-        failure("bind");
-    }
-    freeaddrinfo(bind_address);
-
-    if(listen(socket_listen, 10) < 0)
-    {
-        failure("listen");
-    }
-
-    printf("Waiting for connections...\n");
-
-    struct sockaddr_storage client_address;
-    socklen_t client_len = sizeof(client_address);
-
-    int socket_client = accept(socket_listen, (struct sockaddr*) &client_address, &client_len);
-
-    if(socket_client < 0)
-    {
-        failure("accept");
-    }
-
-    printf("Client connected...\n");
-
-    char address_buffer[100];
-    getnameinfo((struct sockaddr*)&client_address, client_len, address_buffer, sizeof(address_buffer), 0, 0, NI_NUMERICHOST);
-
-    printf("%s\n", address_buffer);
-
-    char request[1024];
-    int bytes_received = recv(socket_client, request, 1024, 0);
-    printf("Received %d bytes\n", bytes_received);
-
-    printf("%.*s\n", bytes_received, request);
-
-    printf("Sending response...\n");
-
-    char* response =
-    "HTTP/1.1 200 OK\r\n"
-    "Connection: close\r\n"
-    "Content-Type: text/plain\r\n\r\n"
-    "Local time is: ";
-    int bytes_sent = send(socket_client, response, strlen(response), 0);
-
-    printf("Sent %d of %d bytes\n", bytes_sent, (int)strlen(response));
-
-    time_t timer;
-    time(&timer);
-    char* time_msg = ctime(&timer);
-    bytes_sent = send(socket_client, time_msg, strlen(time_msg), 0);
-
-    printf("Sent %d of %d bytes\n", bytes_sent, (int)strlen(time_msg));
-
-    printf("Closing connection...\n");
-    close(socket_client);
-
-    printf("Closing listening socket...\n");
-
-    close(socket_listen);
-
+    free(bencode_torrent.info.pieces);
 
     return 0;
 }
 
     
+
+/*
+TODO:
+*/

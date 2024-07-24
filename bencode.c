@@ -99,12 +99,6 @@ int b_get_in_list_offset(ObjType type, int count, char* str)
 
         if(index == count)
         {
-            // when searching for a list or a dictionary point at the first element
-            if(type == LIST || type == DICTIONARY)
-            {
-                global_offset++;
-            }
-
             return global_offset;
         }
 
@@ -195,7 +189,7 @@ int b_get_offset(char* path, char* str)
     int container_type = LIST; // we assume the whole string is a big list
     // i++ to skip PATH_DELIMETER
     int i = 0;
-    while(path[i] != '\0')
+    while(i < strlen(path))
     {
         if(container_type == LIST)
         {
@@ -214,8 +208,14 @@ int b_get_offset(char* path, char* str)
             ObjType object_type = (ObjType)path[i];
             
             i++; // skip object type
-        
-            offset += b_get_in_list_offset(object_type, count, str + offset); // go to the first object of the list
+
+            offset += b_get_in_list_offset(object_type, count, str + offset); // go to the object_type
+
+            // if its a container and we expect another nesting
+            if(i < strlen(path) && (object_type == LIST || object_type == DICTIONARY))
+            {
+                offset++; // get to the first object of the container (skip type token)
+            }
         
             container_type = object_type;
         }
@@ -233,11 +233,7 @@ int b_get_offset(char* path, char* str)
 
             offset += b_get_in_dict_offset(key, str + offset);
 
-            container_type = LIST; // values are asasumed to be inside a list
-        }
-        else
-        {
-            exit(1); // wrong path format (ends in a container)
+            container_type = LIST; // value is assumed to be a list
         }
 
         i++; // skip PATH_DELIMITER
@@ -246,7 +242,6 @@ int b_get_offset(char* path, char* str)
     return offset;
 }
 
-//1.d/yky
 void b_get(char* path, char* str, char* out)
 {
     int offset = b_get_offset(path, str);
@@ -261,6 +256,8 @@ void b_get(char* path, char* str, char* out)
         }
 
         obj_len = integer_ptr - 1; // -1 -> without OBJECT_END_TOKEN
+
+        offset++; // skip OBJECT_END_TOKEN
     }
     else if(get_type(str[offset]) == OTHER)
     {
@@ -274,9 +271,33 @@ void b_get(char* path, char* str, char* out)
         str_obj_len[j] = '\0';
 
         obj_len = atoi(str_obj_len);
-    }
 
-    offset++; // skip ':' or OBJECT_END_TOKEN
+        offset++; // skip ':'
+    }
+    else if(get_type(str[offset] == LIST || get_type(str[offset] == DICTIONARY)))
+    {
+        obj_len = 1; // skip container type token
+        int nesting = 0; 
+        // while in the current dictionary (nesting == 0)
+        while((str[offset + obj_len] != '\0' && nesting >= 0))
+        {
+            if(str[offset + obj_len] == OBJECT_END_TOKEN)
+            {
+                nesting--;
+                
+                obj_len++;
+            }
+            else if(str[offset + obj_len] == LIST || str[offset + obj_len] == DICTIONARY)
+            {
+                nesting++;
+                obj_len++;
+            }
+            else
+            {
+                obj_len += b_skip_obj(get_type(str[offset + obj_len]), str + offset + obj_len);
+            }
+        }
+    }
 
     strncpy(out, str + offset, obj_len);
     out[obj_len] = '\0';

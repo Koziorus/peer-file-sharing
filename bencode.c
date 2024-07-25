@@ -298,7 +298,7 @@ void b_get(unsigned char* path, unsigned char* str, unsigned char* out)
         }
     }
 
-    strncpy(out, str + offset, obj_len);
+    memcpy(out, str + offset, obj_len); // instead of strncpy, because strncpy stops at first `\x00`
     out[obj_len] = '\0';
 }
 

@@ -23,10 +23,9 @@ struct TorrentData
 
 #define MAX_PARAM_NUM 10
 #define MAX_HEADER_NUM 10
+#define MAX_HTTP_RESPONSE_LEN 1000000
 
 #define LOG_VISIBLE
-
-unsigned char info_hash[SHA_DIGEST_LENGTH];
 
 // works when the torrent describes one file (not a dictionary of files)
 // for a dictionary of files the `length` object is replaced with a `files` directory object -> (see bep_0003)
@@ -79,7 +78,7 @@ int get_body_from_http(unsigned char* http_data, int http_data_len, unsigned cha
     if(i < http_data_len)
     {
         int body_len = http_data_len - i;
-        strncpy(body, http_data + i, body_len);
+        memcpy(body, http_data + i, body_len);
         body[body_len] = '\0';
         return 0;
     }
@@ -293,7 +292,7 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     // unsigned char response[20000] = "HTTP/1.1 200 OK\r\nServer: mimosa\r\nConnection: Close\r\nContent-Length: 39\r\nContent-Type: text/plain\r\n\r\nd14:failure reason17:torrent not founde";
     // int bytes_received = strlen(response); // exluding null terminator
 
-    unsigned char response[1000000];
+    unsigned char response[MAX_HTTP_RESPONSE_LEN];
     int bytes_received = recv(peer_socket, response, sizeof(response), 0);
     if(bytes_received == -1)
     {
@@ -301,7 +300,7 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     }
     printf("Received (%d):\n%.*s\n", bytes_received, bytes_received, response);
 
-    unsigned char explicit_response[1000000];
+    unsigned char explicit_response[MAX_HTTP_RESPONSE_LEN * 2]; // potentially two times the size of original response
     explicit_str(response, bytes_received, explicit_response);
     printf("%s\n", explicit_response);
 
@@ -316,10 +315,7 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
 
 int main(int argc, unsigned char *argv[])
 {
-    srand(time(NULL));
-    // unsigned char bencoded_str[MAX_STR_LEN] = "d8:announce41:http://bttracker.debian.org:6969/announce7:comment35:'Debian CD from cdimage.debian.org'13:creation datei1573903810e4:infod6:lengthi1e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi1e6:pieces20:0123456789ABCDEF7890ee";
-
-    // unsigned char bencoded_str[MAX_STR_LEN] = "d8:announce18:http://example.com7:comment35:'Debian CD from cdimage.debian.org'13:creation datei1573903810e4:infod6:lengthi1e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi1e6:pieces20:0123456789ABCDEF7890ee";
+    srand(time(NULL)); // for random peer_id generation
 
     FILE* torrent_file;
     torrent_file = fopen("debian-12.6.0-i386-netinst.iso.torrent", "r");
@@ -329,8 +325,8 @@ int main(int argc, unsigned char *argv[])
         failure("open");
     }
     
-    unsigned char bencoded_torrent[53000];
-    fread(bencoded_torrent, sizeof(unsigned char), 53000, torrent_file);
+    unsigned char bencoded_torrent[MAX_BENCODED_TORRENT_LEN];
+    fread(bencoded_torrent, sizeof(unsigned char), MAX_BENCODED_TORRENT_LEN, torrent_file);
     fclose(torrent_file);
 
     printf("%s\n", bencoded_torrent);
@@ -343,10 +339,8 @@ int main(int argc, unsigned char *argv[])
 }
 
     
-
 /*
 TODO:
-- test if lower / higher versions of HTTP work (right now its HTTP 1.1)
-- add MAX_BENCODED_TORRENT_LEN
-
+- add checking if HTTP response is "OK" and only then proceed to extract the bencode body
+- create a TODO list with tasks to include error/exceptions handling in various parts of the code 
 */

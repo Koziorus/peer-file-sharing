@@ -1,11 +1,11 @@
 #include "bencode.h"
 
-int is_digit(char c)
+int is_digit(unsigned char c)
 {
     return (c >= '0' && c <= '9');
 }
 
-ObjType get_type(char token)
+ObjType get_type(unsigned char token)
 {
     if(is_digit(token))
     {
@@ -17,14 +17,14 @@ ObjType get_type(char token)
     }
 }
 
-int b_skip_obj(ObjType object_type, char* str)
+int b_skip_obj(ObjType object_type, unsigned char* str)
 {
     int offset = 0;
     if(object_type == OTHER)
     {
         // set offset to jump over the object
 
-        char str_offset[MAX_STR_LEN];
+        unsigned char str_offset[MAX_BENCODE_NUM_LEN];
         int j;
         for(j = 0; is_digit(str[offset]); j++)
         {
@@ -50,7 +50,7 @@ int b_skip_obj(ObjType object_type, char* str)
 // gets offset after the jump to the next object
 // type - jump over every type but the specified
 // if initially str is at the right type, go to the next obj of this type
-int b_jump_to_type(ObjType type, char* str, int ignore_flag)
+int b_jump_to_type(ObjType type, unsigned char* str, int ignore_flag)
 {
     int offset = 0;
     int nesting = 0; // example: d d (2x nesting) i (3x nesting) e e (1x nesting) e 
@@ -81,7 +81,7 @@ int b_jump_to_type(ObjType type, char* str, int ignore_flag)
 // Gets offset of an object inside a list container
 // str - bencoded str offseted
 // we assume that the whole bencoded string is a list (usually with one element)
-int b_get_in_list_offset(ObjType type, int count, char* str)
+int b_get_in_list_offset(ObjType type, int count, unsigned char* str)
 {
     int global_offset = 0;
     // index of an object in the list container
@@ -108,13 +108,13 @@ int b_get_in_list_offset(ObjType type, int count, char* str)
     return -1;
 }
 
-int b_get_in_dict_offset(char* key, char* str)
+int b_get_in_dict_offset(unsigned char* key, unsigned char* str)
 {
     int offset = 0;
     int nesting = 0; // example: d d (2x nesting) i (3x nesting) e e (1x nesting) e 
 
     // stop when the key is found and nesting is at the level of beginning of str
-    char current_key[MAX_STR_LEN] = "";
+    unsigned char current_key[MAX_BENCODE_KEY_LEN] = "";
 
     int key_value_toggle = 0;
 
@@ -137,7 +137,7 @@ int b_get_in_dict_offset(char* key, char* str)
                 if(key_value_toggle == 0)
                 {
                     // get key
-                    char str_key_offset[MAX_STR_LEN];
+                    unsigned char str_key_offset[MAX_BENCODE_NUM_LEN];
                     int j;
                     for(j = 0; is_digit(str[offset]); j++)
                     {
@@ -181,8 +181,7 @@ example of a nested integer path:
 1.l/2.d/first/inner/0.d/in_dict/3.i
 */
 
-
-int b_get_offset(char* path, char* str)
+int b_get_offset(unsigned char* path, unsigned char* str)
 {
     int offset = 0; // string offset
 
@@ -193,7 +192,7 @@ int b_get_offset(char* path, char* str)
     {
         if(container_type == LIST)
         {
-            char str_count[MAX_STR_LEN];
+            unsigned char str_count[MAX_BENCODE_PATH_COUNT_LEN];
             int j;
             for(j = 0; is_digit(path[i+j]); j++)
             {
@@ -221,7 +220,7 @@ int b_get_offset(char* path, char* str)
         }
         else if(container_type == DICTIONARY)
         {
-            char key[MAX_STR_LEN];
+            unsigned char key[MAX_BENCODE_KEY_LEN];
             int j;
             for(j = 0; path[i+j] != PATH_DELIMITER && path[i+j] != '\0'; j++)
             {
@@ -242,7 +241,7 @@ int b_get_offset(char* path, char* str)
     return offset;
 }
 
-void b_get(char* path, char* str, char* out)
+void b_get(unsigned char* path, unsigned char* str, unsigned char* out)
 {
     int offset = b_get_offset(path, str);
 
@@ -261,7 +260,7 @@ void b_get(char* path, char* str, char* out)
     }
     else if(get_type(str[offset]) == OTHER)
     {
-        char str_obj_len[MAX_STR_LEN];
+        unsigned char str_obj_len[MAX_BENCODE_NUM_LEN];
         int j;
         for(j = 0; is_digit(str[offset]); j++)
         {
@@ -311,7 +310,7 @@ void b_print_nesting(int nesting)
     }
 }
 
-int b_print_list(char* str, int nesting)
+int b_print_list(unsigned char* str, int nesting)
 {
     int i = 0;
     ObjType list_obj_type;
@@ -332,9 +331,7 @@ int b_print_list(char* str, int nesting)
 
             if(list_obj_type == OTHER)
             {
-
-                // TODO: replace those kind of pieces of code with read_number()
-                char str_obj_len[MAX_STR_LEN];
+                unsigned char str_obj_len[MAX_BENCODE_NUM_LEN];
                 int j;
                 for(j = 0; is_digit(str[i]); j++)
                 {
@@ -351,10 +348,18 @@ int b_print_list(char* str, int nesting)
 
                 i++; // skip ':'
 
-                while(obj_len--)
+                if(obj_len < 1000)
                 {
-                    printf("%c", str[i]);
-                    i++;
+                    while(obj_len--)
+                    {
+                        printf("%c", str[i]);
+                        i++;
+                    }
+                }
+                else
+                {
+                    printf("HUGE");
+                    i += obj_len;
                 }
             }
             else 
@@ -368,7 +373,7 @@ int b_print_list(char* str, int nesting)
     return i;
 }
 
-int b_print_dict(char* str, int nesting)
+int b_print_dict(unsigned char* str, int nesting)
 {
     int i = 0;
     ObjType list_obj_type;
@@ -391,7 +396,7 @@ int b_print_dict(char* str, int nesting)
 
             if(list_obj_type == OTHER)
             {
-                char str_obj_len[MAX_STR_LEN];
+                unsigned char str_obj_len[MAX_BENCODE_NUM_LEN];
                 int j;
                 for(j = 0; is_digit(str[i]); j++)
                 {
@@ -408,10 +413,18 @@ int b_print_dict(char* str, int nesting)
 
                 i++; // skip ':'
 
-                while(obj_len--)
+                if(obj_len < 1000)
                 {
-                    printf("%c", str[i]);
-                    i++;
+                    while(obj_len--)
+                    {
+                        printf("%c", str[i]);
+                        i++;
+                    }
+                }
+                else
+                {
+                    printf("HUGE");
+                    i += obj_len;
                 }
             }
             else
@@ -427,11 +440,11 @@ int b_print_dict(char* str, int nesting)
     return i;
 }
 
-int b_print_integer(char* str, int nesting)
+int b_print_integer(unsigned char* str, int nesting)
 {
     b_print_nesting(nesting);
 
-    char str_int[MAX_STR_LEN];
+    unsigned char str_int[MAX_BENCODED_INTEGER_LEN];
 
     int i = 0;
     while(str[i] != OBJECT_END_TOKEN)
@@ -443,10 +456,8 @@ int b_print_integer(char* str, int nesting)
     return i + 1; // + 1 -> skip OBJECT_END_TOKEN
 }
 
-int b_print_tree(char* str, int nesting, ObjType type)
+int b_print_tree(unsigned char* str, int nesting, ObjType type)
 {
-    char print[MAX_STR_LEN];
-
     int i = 0;
 
     b_print_nesting(nesting);
@@ -471,7 +482,7 @@ int b_print_tree(char* str, int nesting, ObjType type)
     return i;
 }
 
-void b_print(char* str)
+void b_print(unsigned char* str)
 {
     if(str[0] == '\0')
     {
@@ -482,17 +493,17 @@ void b_print(char* str)
     printf("\n");
 }
 
-// returns offset to the first character after the inserted object
-int b_insert_obj(char* str, int offset, char* str_obj, ObjType type)
+// returns offset to the first unsigned character after the inserted object
+int b_insert_obj(unsigned char* str, int offset, unsigned char* str_obj, ObjType type)
 {
-    char str_A[MAX_STR_LEN] = "";
-    char str_B[MAX_STR_LEN] = "";
+    unsigned char str_A[MAX_BENCODED_TORRENT_LEN] = "";
+    unsigned char str_B[MAX_BENCODED_TORRENT_LEN] = "";
     strncpy(str_A, str, offset); // abcdefgh
     str_A[offset] = '\0';
     strncpy(str_B, str + offset, strlen(str) - offset);
     str_B[strlen(str) - offset] = '\0';
 
-    char str_whole_obj[MAX_STR_LEN];
+    unsigned char str_whole_obj[MAX_BENCODED_TORRENT_LEN];
 
     if(type == LIST || type == DICTIONARY || type == INTEGER)
     { 
@@ -500,7 +511,7 @@ int b_insert_obj(char* str, int offset, char* str_obj, ObjType type)
     }
     else
     {
-        sprintf(str_whole_obj, "%d:%s", strlen(str_obj), str_obj);
+        sprintf(str_whole_obj, "%d:%s", (int)strlen(str_obj), str_obj);
     }
 
     sprintf(str, "%s%s%s", str_A, str_whole_obj, str_B);
@@ -510,34 +521,34 @@ int b_insert_obj(char* str, int offset, char* str_obj, ObjType type)
 }
 
 // element is an object inside a list
-void b_insert_element(char* str, char* path, char* str_obj, ObjType type)
+void b_insert_element(unsigned char* str, unsigned char* path, unsigned char* str_obj, ObjType type)
 {
     int insert_offset = b_get_offset(path, str);
     b_insert_obj(str, insert_offset, str_obj, type);
 }
 
-void b_insert_key_value(char* str, char* path, char* key, char* value, ObjType value_type)
+void b_insert_key_value(unsigned char* str, unsigned char* path, unsigned char* key, unsigned char* value, ObjType value_type)
 {
     int insert_offset = b_get_offset(path, str);
     insert_offset = b_insert_obj(str, insert_offset, key, OTHER);
     b_insert_obj(str, insert_offset, value, value_type);
 }
 
-void b_insert_int(char* str, char* path, int integer)
+void b_insert_int(unsigned char* str, unsigned char* path, int integer)
 {
     int insert_offset = b_get_offset(path, str);
 
-    char str_int[MAX_STR_LEN];
+    unsigned char str_int[MAX_BENCODED_INTEGER_LEN];
     sprintf(str_int, "i%de", integer);
     b_insert_obj(str, insert_offset, str_int, INTEGER);
 }
 
-void b_create_list(char* list_out)
+void b_create_list(unsigned char* list_out)
 {
     strcpy(list_out, "le");
 }
 
-void b_create_dict(char* dict_out)
+void b_create_dict(unsigned char* dict_out)
 {
     strcpy(dict_out, "de");
 }

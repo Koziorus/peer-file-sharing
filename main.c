@@ -110,9 +110,9 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     unsigned char info_hash[SHA_DIGEST_LENGTH];
 
     unsigned char dict_str[MAX_BENCODED_TORRENT_LEN];
-    b_get("0.d|info|", bencoded_torrent, dict_str);
+    int dict_str_len = b_get("0.d|info|", bencoded_torrent, dict_str);
 
-    SHA1((unsigned char *) dict_str, strlen(dict_str), info_hash);
+    SHA1(dict_str, dict_str_len, info_hash);
 
 #ifdef LOG_VISIBLE
     for(int i = 0; i < SHA_DIGEST_LENGTH; i++)

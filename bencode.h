@@ -17,6 +17,7 @@
 #define TRUE 1
 
 #define PATH_DELIMITER '|'
+#define BENCODE_PRINT_LINE_LIMIT 100
 
 typedef enum 
 {
@@ -57,7 +58,7 @@ example of a nested integer path:
 
 int b_get_offset(unsigned char *path, unsigned char *str);
 
-void b_get(unsigned char *path, unsigned char *str, unsigned char *out);
+int b_get(unsigned char *path, unsigned char *str, unsigned char *out);
 
 int b_print_tree(unsigned char* str, int nesting, ObjType type);
 

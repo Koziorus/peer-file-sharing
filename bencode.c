@@ -241,7 +241,7 @@ int b_get_offset(unsigned char* path, unsigned char* str)
     return offset;
 }
 
-void b_get(unsigned char* path, unsigned char* str, unsigned char* out)
+int b_get(unsigned char* path, unsigned char* str, unsigned char* out)
 {
     int offset = b_get_offset(path, str);
 
@@ -300,6 +300,8 @@ void b_get(unsigned char* path, unsigned char* str, unsigned char* out)
 
     memcpy(out, str + offset, obj_len); // instead of strncpy, because strncpy stops at first `\x00`
     out[obj_len] = '\0';
+
+    return obj_len;
 }
 
 void b_print_nesting(int nesting)
@@ -348,7 +350,7 @@ int b_print_list(unsigned char* str, int nesting)
 
                 i++; // skip ':'
 
-                if(obj_len < 1000)
+                if(obj_len < BENCODE_PRINT_LINE_LIMIT)
                 {
                     while(obj_len--)
                     {
@@ -413,7 +415,7 @@ int b_print_dict(unsigned char* str, int nesting)
 
                 i++; // skip ':'
 
-                if(obj_len < 1000)
+                if(obj_len < BENCODE_PRINT_LINE_LIMIT)
                 {
                     while(obj_len--)
                     {

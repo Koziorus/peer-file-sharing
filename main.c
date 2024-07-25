@@ -3,6 +3,7 @@
 #include <openssl/sha.h>
 #include <time.h>
 #include <regex.h>
+#include <byteswap.h>
 
 struct TorrentInfo
 {
@@ -100,6 +101,21 @@ void explicit_http_chars(unsigned char* data, int data_len, unsigned char* out)
             sprintf(out, "%.*s%%%02x", i*3, out, data[i]); // i* 3 -> for every data[i] there is "%xx"
         }
     }
+}
+
+void get_full_numeric_addr(unsigned char* data, unsigned char* out)
+{
+    uint8_t addr[4];
+    int i = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        addr[i] = data[i];
+    }
+
+    unsigned char* port_ptr = data + 4;
+
+    uint16_t port = __bswap_16(*((uint16_t*)port_ptr)); // convert from Big Endian to Little Endian
+    sprintf(out, "%d.%d.%d.%d:%d", addr[0], addr[1], addr[2], addr[3], port);
 }
 
 void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_response)
@@ -308,6 +324,20 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     get_body_from_http(response, bytes_received, body);
     b_print(body);
 
+    char peers_addr_data[1000];
+    int peers_addr_data_len = b_get("0.d|peers|", body, peers_addr_data);
+
+#ifdef LOG_VISIBLE
+    printf("Peers:\n");
+    int peers_num = peers_addr_data_len / 6; // 6 bytes per ipv4 and port
+    for(int i = 0; i < peers_num; i++)
+    {
+        char peer_full_addr[100];
+        get_full_numeric_addr(peers_addr_data + i * 6, peer_full_addr);
+        printf("\t%s\n", peer_full_addr);
+    }
+#endif
+
     close(peer_socket);
 
     free(torrent_data.info.pieces);
@@ -331,9 +361,14 @@ int main(int argc, unsigned char *argv[])
 
     printf("%s\n", bencoded_torrent);
 
-    b_print(bencoded_torrent);
+    // b_print(bencoded_torrent);
 
     get_tracker_info(bencoded_torrent, NULL);
+
+    // unsigned char data[] = {6,9,4,2,4,5};
+    // unsigned char out[MAX_STR_LEN];
+    // get_full_numeric_addr(data, out);
+    // printf("%s", out);
 
     return 0;
 }
@@ -343,4 +378,6 @@ int main(int argc, unsigned char *argv[])
 TODO:
 - add checking if HTTP response is "OK" and only then proceed to extract the bencode body
 - create a TODO list with tasks to include error/exceptions handling in various parts of the code 
+- ! change bencode.c so that it doesnt use checking of '\0' to end loops (except checking for `path`)
+- ! check if things are that are sent and received are interpreted with the right endianness
 */

@@ -1,43 +1,6 @@
 #include "network.h"
 
-void failure(char* function_name)
-{
-    fprintf(stderr, "%s() failed (%d) -> [%s]\n", function_name, errno, strerror(errno));
-
-    exit(1);
-}
-
-int explicit_str(char* src, int len, char* dst)
-{
-    char* escape_str[] = {"\\0", "\\a", "\\b", "\\e", "\\f", "\\n", "\\r", "\\t", "\\v", "\\\\", "\\'", "\\\"", "\\?"};
-    char escape_char[] = "\0\a\b\e\f\n\r\t\v\\\'\"\?";
-    int escape_len = sizeof(escape_char);
-
-    int k = 0;
-    for(int i = 0; i < len; i++)
-    {
-        int is_escape_char = 0;
-        for(int j = 0; j < escape_len; j++)
-        {
-            if(src[i] == escape_char[j])
-            {
-                is_escape_char = 1;
-                strcpy(dst + k, escape_str[j]);
-                k++;
-                break;
-            }
-        }
-
-        if(!is_escape_char)
-        {
-            dst[k] = src[i];
-        }
-
-        k++;
-    }
-
-    return k;
-}
+#define LOG_VISIBLE
 
 // waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
 // normally connect() timeouts with a OS specified time (usually ~20s)
@@ -142,7 +105,7 @@ void send_no_deadlock(int fd, const void *buf, size_t n, int flags, int (*on_rec
 }
 
 // returns 0 on success, -1 when there's no body
-int http_get_body(unsigned char* http_data, int http_data_len, unsigned char* body)
+int http_response_extract_body(unsigned char* http_data, int http_data_len, unsigned char* body)
 {
     // until "\r\n\r\n"
     int i = 0;
@@ -178,4 +141,61 @@ void http_explicit_str(unsigned char* data, int data_len, unsigned char* out)
             sprintf(out, "%.*s%%%02x", i*3, out, data[i]); // i* 3 -> for every data[i] there is "%xx"
         }
     }
+}
+
+// returns connected socket
+int start_TCP_connection(char* remote_domain_name, char* remote_port, char* local_addr_out, char* local_port_out)
+{
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo* remote_addrinfo;
+    if(getaddrinfo(remote_domain_name, remote_port, &hints, &remote_addrinfo) != 0)
+    {
+        failure("getaddrinfo");
+    }
+
+    unsigned char remote_host_buf[MAX_STR_LEN];
+    unsigned char remote_serv_buf[MAX_STR_LEN];
+    if(getnameinfo(remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, remote_host_buf, sizeof(remote_host_buf), remote_serv_buf, sizeof(remote_serv_buf), NI_NUMERICHOST) != 0)
+    {
+        failure("getnameinfo");
+    }
+
+    int peer_socket = socket(remote_addrinfo->ai_family, remote_addrinfo->ai_socktype, remote_addrinfo->ai_protocol);
+    if(socket == -1)
+    {
+        failure("socket");
+    }
+
+    if(connect(peer_socket, remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen) == -1)
+    {
+        failure("connect");
+    }
+
+    struct sockaddr local_addr;
+    socklen_t local_addr_len = sizeof(local_addr);
+    if(getsockname(peer_socket, &local_addr, &local_addr_len) == -1)
+    {
+        failure("getsockname");
+    }
+
+    unsigned char local_host_buf[MAX_STR_LEN];
+    unsigned char local_serv_buf[MAX_STR_LEN];
+    if(getnameinfo(&local_addr, local_addr_len, local_host_buf, sizeof(local_host_buf), local_serv_buf, sizeof(local_serv_buf), NI_NUMERICHOST | NI_NUMERICSERV) != 0)
+    {
+        failure("getnameinfo");
+    }
+
+    strcpy(local_addr_out, local_host_buf);
+    strcpy(local_port_out, local_serv_buf);
+
+#ifdef LOG_VISIBLE
+    printf("Connected: %s (%s) -> %s (%s)\n", local_host_buf, local_serv_buf, remote_host_buf, remote_serv_buf);
+#endif
+
+    freeaddrinfo(remote_addrinfo);
+
+    return peer_socket;
 }

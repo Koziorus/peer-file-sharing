@@ -9,3 +9,42 @@ void generate_rand_string(int n, unsigned char* out)
         out[i] = rand() % 256; // random byte
     }
 }
+
+void failure(char* function_name)
+{
+    fprintf(stderr, "%s() failed (%d) -> [%s]\n", function_name, errno, strerror(errno));
+
+    exit(1);
+}
+
+int explicit_str(char* src, int len, char* dst)
+{
+    char* escape_str[] = {"\\0", "\\a", "\\b", "\\e", "\\f", "\\n", "\\r", "\\t", "\\v", "\\\\", "\\'", "\\\"", "\\?"};
+    char escape_char[] = "\0\a\b\e\f\n\r\t\v\\\'\"\?";
+    int escape_len = sizeof(escape_char);
+
+    int k = 0;
+    for(int i = 0; i < len; i++)
+    {
+        int is_escape_char = 0;
+        for(int j = 0; j < escape_len; j++)
+        {
+            if(src[i] == escape_char[j])
+            {
+                is_escape_char = 1;
+                strcpy(dst + k, escape_str[j]);
+                k++;
+                break;
+            }
+        }
+
+        if(!is_escape_char)
+        {
+            dst[k] = src[i];
+        }
+
+        k++;
+    }
+
+    return k;
+}

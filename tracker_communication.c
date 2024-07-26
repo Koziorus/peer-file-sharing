@@ -41,17 +41,102 @@ void get_full_numeric_addr(unsigned char* data, unsigned char* out)
     sprintf(out, "%d.%d.%d.%d:%d", addr[0], addr[1], addr[2], addr[3], port);
 }
 
-void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_response)
+int http_GET(int peer_socket, char* resource_name, char* params, char* headers, char* response_out)
+{
+    unsigned char request[MAX_STR_LEN];
+    sprintf(request, "GET /%s?%s HTTP/1.1\r\n%s\r\n\r\n", resource_name, params, headers); // \r\n\r\n is the ending
+
+#ifdef LOG_VISIBLE
+    printf("%s\n", request);
+#endif
+
+    int bytes_sent = send(peer_socket, request, strlen(request), 0);
+    if(bytes_sent < strlen(request) || bytes_sent == -1)
+    {
+        failure("send");
+    }
+
+    unsigned char response[MAX_HTTP_RESPONSE_LEN];
+    int bytes_received = recv(peer_socket, response, sizeof(response), 0);
+    if(bytes_received == -1)
+    {
+        failure("recv");
+    }
+
+#ifdef LOG_VISIBLE
+    printf("Received (%d bytes):\n%.*s\n", bytes_received, bytes_received, response);
+#endif
+    
+    // unsigned char explicit_response[MAX_HTTP_RESPONSE_LEN * 2]; // potentially two times the size of original response
+    // explicit_str(response, bytes_received, explicit_response);
+    // printf("%s\n", explicit_response);
+
+    strncpy(response_out, response, bytes_received);
+    return bytes_received;
+}
+
+// pass NULL as the last argument
+void create_params(unsigned char* params_out, ...)
+{
+    va_list arg_list;
+    va_start(arg_list, params_out);
+
+    for(int i = 0; TRUE; i++)
+    {
+        unsigned char* param_name = va_arg(arg_list, unsigned char*);
+        if(param_name == NULL) //check if all arguments have been exhausted from arg_list
+        {
+            va_end(arg_list);
+            break;
+        }
+
+        unsigned char* param_value = va_arg(arg_list, unsigned char*);
+
+        if(i != 0)
+        {
+            sprintf(params_out, "%s&", params_out);
+        }
+        
+        sprintf(params_out, "%s%s=%s", params_out, param_name, param_value);
+    }
+}
+
+// pass NULL as the last argument
+void create_headers(unsigned char* headers_out, ...)
+{
+    va_list arg_list;
+    va_start(arg_list, headers_out);
+
+    for(int i = 0; TRUE; i++)
+    {
+        unsigned char* header_name = va_arg(arg_list, unsigned char*);
+        if(header_name == NULL) //check if all arguments have been exhausted from arg_list
+        {
+            va_end(arg_list);
+            break;
+        }
+
+        unsigned char* header_value = va_arg(arg_list, unsigned char*);
+
+        if(i != 0)
+        {
+            sprintf(headers_out, "%s\r\n", headers_out);
+        }
+
+        sprintf(headers_out, "%s%s: %s", headers_out, header_name, header_value);
+    }
+}
+
+void tracker_get_peers(unsigned char* bencoded_torrent, unsigned char* bencoded_response)
 {
     struct TorrentData torrent_data;
     deserialize_bencode_torrent(&torrent_data, bencoded_torrent);
     
+    unsigned char info_str[MAX_BENCODED_TORRENT_LEN];
+    int dict_str_len = b_get("0.d|info|", bencoded_torrent, info_str);
+
     unsigned char info_hash[SHA_DIGEST_LENGTH];
-
-    unsigned char dict_str[MAX_BENCODED_TORRENT_LEN];
-    int dict_str_len = b_get("0.d|info|", bencoded_torrent, dict_str);
-
-    SHA1(dict_str, dict_str_len, info_hash);
+    SHA1(info_str, dict_str_len, info_hash);
 
 #ifdef LOG_VISIBLE
     for(int i = 0; i < SHA_DIGEST_LENGTH; i++)
@@ -60,12 +145,6 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     }
     printf("\n");
 #endif
-
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_socktype = SOCK_STREAM;
-
-    // temporary measure to skip the protocol in URL
 
     unsigned char remote_domain_name[MAX_STR_LEN];
     int protocol_offset = strlen("http://");
@@ -86,165 +165,50 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     strncpy(resource_name, torrent_data.announce + resource_offset, resource_name_len);
     resource_name[resource_name_len] = '\0';
 
-    struct addrinfo* remote_addrinfo;
-    if(getaddrinfo(remote_domain_name, remote_port, &hints, &remote_addrinfo) != 0)
-    {
-        failure("getaddrinfo");
-    }
+    char local_addr[MAX_STR_LEN];
+    char local_port[MAX_STR_LEN];
+    int peer_socket = start_TCP_connection(remote_domain_name, remote_port, local_addr, local_port);
 
-    unsigned char remote_host_buf[MAX_STR_LEN];
-    unsigned char remote_serv_buf[MAX_STR_LEN];
-    if(getnameinfo(remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, remote_host_buf, sizeof(remote_host_buf), remote_serv_buf, sizeof(remote_serv_buf), NI_NUMERICHOST) != 0)
-    {
-        failure("getnameinfo");
-    }
-
-    int peer_socket = socket(remote_addrinfo->ai_family, remote_addrinfo->ai_socktype, remote_addrinfo->ai_protocol);
-    if(socket == -1)
-    {
-        failure("socket");
-    }
-
-    if(connect(peer_socket, remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen) == -1)
-    {
-        failure("connect");
-    }
-
-    struct sockaddr local_addr;
-    socklen_t local_addr_len = sizeof(local_addr);
-    if(getsockname(peer_socket, &local_addr, &local_addr_len) == -1)
-    {
-        failure("getsockname");
-    }
-
-    unsigned char local_host_buf[MAX_STR_LEN];
-    unsigned char local_serv_buf[MAX_STR_LEN];
-    if(getnameinfo(&local_addr, local_addr_len, local_host_buf, sizeof(local_host_buf), local_serv_buf, sizeof(local_serv_buf), NI_NUMERICHOST | NI_NUMERICSERV) != 0)
-    {
-        failure("getnameinfo");
-    }
-
-#ifdef LOG_VISIBLE
-    printf("Connected: %s (%s) -> %s (%s)\n", local_host_buf, local_serv_buf, remote_host_buf, remote_serv_buf);
-#endif
-
-    unsigned char param_names[][MAX_STR_LEN] = {
-                                        "info_hash",
-                                        "peer_id",
-                                        "port",
-                                        "uploaded",
-                                        "downloaded",
-                                        "compact",
-                                        "left"
-                                        };
-    unsigned char param_values[MAX_PARAM_NUM][MAX_STR_LEN];
-    int param_num = sizeof(param_names) / sizeof(param_names[0]);
-
-    // clear values
-    for(int i = 0; i < param_num; i++)
-    {
-        strcpy(param_values[i], "");
-    }
-
-    // info_hash
-    unsigned char info_hash_escaped[SHA_DIGEST_LENGTH * 3]; // for each bytes there is a '%' and 2 hex digits
+    unsigned char info_hash_escaped[SHA_DIGEST_LENGTH * 3 + 1]; // for each bytes there is a '%' and 2 hex digits, at the end a null terminator
     http_explicit_str(info_hash, sizeof(info_hash), info_hash_escaped);
-    strncpy(param_values[0], info_hash_escaped, sizeof(info_hash_escaped));
-    param_values[0][sizeof(info_hash_escaped)] = '\0';
+    info_hash_escaped[sizeof(info_hash_escaped)] = '\0';
 
-#ifdef LOG_VISIBLE
-    printf("%s\n", param_values[0]);
-#endif
-
-    // peer_id
     unsigned char peer_id[SHA_DIGEST_LENGTH];
     generate_rand_string(SHA_DIGEST_LENGTH, peer_id);
-    unsigned char peer_id_escaped[SHA_DIGEST_LENGTH * 3]; // for each bytes there is a '%' and 2 hex digits
+    unsigned char peer_id_escaped[SHA_DIGEST_LENGTH * 3]; // for each bytes there is a '%' and 2 hex digits, at the end a null terminator
     http_explicit_str(peer_id, sizeof(peer_id), peer_id_escaped);
-    strncpy(param_values[1], peer_id_escaped, sizeof(peer_id_escaped));
-    param_values[1][sizeof(peer_id_escaped)] = '\0';
+    peer_id_escaped[sizeof(peer_id_escaped)] = '\0';
 
-    // port
-    strcpy(param_values[2], local_serv_buf);
+    unsigned char port[MAX_STR_LEN];
+    strcpy(port, local_port);
 
-    // uploaded
-    strcpy(param_values[3], "0");
-
-    // downloaded
-    strcpy(param_values[4], "0");
-
-    // compact
-    strcpy(param_values[5], "1");
-
-    // left
-    sprintf(param_values[6], "%d", torrent_data.info.length);
+    unsigned char left[MAX_STR_LEN];
+    sprintf(left, "%d", torrent_data.info.length);
 
     unsigned char params[MAX_STR_LEN];
-    for(int i = 0; i < param_num; i++)
-    {
-        if(i != 0)
-        {
-            sprintf(params, "%s&", params);
-        }
+    create_params(params,   "info_hash", info_hash_escaped, 
+                            "peer_id", peer_id_escaped,
+                            "port", port,
+                            "uploaded", "0",
+                            "downloaded", "0",
+                            "compact", "1",
+                            "left", left,
+                            NULL);
 
-        sprintf(params, "%s%s=%s", params, param_names[i], param_values[i]);
-    }
-
-    unsigned char header_names[][MAX_STR_LEN] = {
-                                        "Host"
-                                        };
-    unsigned char header_values[MAX_HEADER_NUM][MAX_STR_LEN];
-    int header_num = sizeof(header_names) / sizeof(header_names[0]);
-
-    // clear values
-    for(int i = 0; i < header_num; i++)
-    {
-        strcpy(header_values[i], "");
-    }
-
-    sprintf(header_values[0], "%s:%s", remote_domain_name, remote_port);
+    unsigned char host[MAX_STR_LEN];
+    sprintf(host, "%s:%s", remote_domain_name, remote_port);
 
     unsigned char headers[MAX_STR_LEN];
-    for(int i = 0; i < header_num; i++)
-    {
-        if(i != 0)
-        {
-            sprintf(headers, "%s\r\n", params);
-        }
+    create_headers(headers, "Host", host,
+                            NULL);
 
-        sprintf(headers, "%s%s: %s", headers, header_names[i], header_values[i]);
-    }
-
-    unsigned char request[MAX_STR_LEN];
-    sprintf(request, "GET /%s?%s HTTP/1.1\r\n%s\r\n\r\n", resource_name, params, headers); // \r\n\r\n is the ending
-
-#ifdef LOG_VISIBLE
-    printf("%s\n", request);
-#endif
-
-    int bytes_sent = send(peer_socket, request, strlen(request), 0);
-    if(bytes_sent < strlen(request) || bytes_sent == -1)
-    {
-        failure("send");
-    }
-
-    // unsigned char response[20000] = "HTTP/1.1 200 OK\r\nServer: mimosa\r\nConnection: Close\r\nContent-Length: 39\r\nContent-Type: text/plain\r\n\r\nd14:failure reason17:torrent not founde";
-    // int bytes_received = strlen(response); // exluding null terminator
-
-    unsigned char response[MAX_HTTP_RESPONSE_LEN];
-    int bytes_received = recv(peer_socket, response, sizeof(response), 0);
-    if(bytes_received == -1)
-    {
-        failure("recv");
-    }
-    printf("Received (%d bytes):\n%.*s\n", bytes_received, bytes_received, response);
-
-    unsigned char explicit_response[MAX_HTTP_RESPONSE_LEN * 2]; // potentially two times the size of original response
-    explicit_str(response, bytes_received, explicit_response);
-    printf("%s\n", explicit_response);
+    char response[MAX_HTTP_RESPONSE_LEN];
+    int bytes_received = http_GET(peer_socket, resource_name, params, headers, response);
+    
+    close(peer_socket);
 
     unsigned char body[MAX_BENCODED_TORRENT_LEN];
-    http_get_body(response, bytes_received, body);
+    http_response_extract_body(response, bytes_received, body);
     b_print(body);
 
     char peers_addr_data[1000];
@@ -261,7 +225,10 @@ void get_tracker_info(unsigned char* bencoded_torrent, unsigned char* bencoded_r
     }
 #endif
 
-    close(peer_socket);
-
     free(torrent_data.info.pieces);
 }
+
+/*
+TODO:
+- moze byc cos nie tak z przetwarzaniem/odbieraniem danych od trackera (czesc danych jest zerowa)
+*/

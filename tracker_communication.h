@@ -3,7 +3,7 @@
 #include "network.h"
 #include "bencode.h"
 #include <openssl/sha.h>
-#include "helper.h"
+#include <stdarg.h>
 
 #define MAX_PARAM_NUM 10
 #define MAX_HEADER_NUM 10
@@ -31,4 +31,10 @@ void deserialize_bencode_torrent(struct TorrentData *torrent_data, unsigned char
 
 void get_full_numeric_addr(unsigned char *data, unsigned char *out);
 
-void get_tracker_info(unsigned char *bencoded_torrent, unsigned char *bencoded_response);
+int http_GET(int peer_socket, char *resource_name, char *params, char *headers, char *response_out);
+
+void create_params(unsigned char *params_out, ...);
+
+void create_headers(unsigned char *headers_out, ...);
+
+void tracker_get_peers(unsigned char *bencoded_torrent, unsigned char *bencoded_response);

@@ -12,7 +12,6 @@
 
 #define MAX_BENCODE_PATH_COUNT_LEN 100
 
-#define MAX_STR_LEN 10000
 #define OBJECT_END_TOKEN 'e'
 
 #define FALSE 0

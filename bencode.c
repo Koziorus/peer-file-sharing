@@ -382,7 +382,7 @@ int b_print_dict(unsigned char* str, int nesting)
 
     int key_value_toggle = 0;
 
-    while(TRUE)
+    while(str[i] != '\0')
     {
         list_obj_type = get_type(str[i]);
         if(str[i] == OBJECT_END_TOKEN)

@@ -29,7 +29,7 @@ struct TorrentData
 
 void deserialize_bencode_torrent(struct TorrentData *torrent_data, unsigned char *bencoded_str);
 
-void get_full_numeric_addr(unsigned char *data, unsigned char *out);
+void get_full_numeric_addr(unsigned char *data, unsigned char *addr_out, unsigned char *port_out);
 
 int http_GET(int peer_socket, char *resource_name, char *params, char *headers, char *response_out);
 
@@ -37,4 +37,4 @@ void create_params(unsigned char *params_out, ...);
 
 void create_headers(unsigned char *headers_out, ...);
 
-void tracker_get_peers(unsigned char *bencoded_torrent, unsigned char *bencoded_response);
+int tracker_get_peers(unsigned char *bencoded_torrent, unsigned char info_hash[SHA_DIGEST_LENGTH], unsigned char local_peer_id[SHA_DIGEST_LENGTH], unsigned char peer_addresses[][MAX_STR_LEN], unsigned char peer_ports[][MAX_STR_LEN]);

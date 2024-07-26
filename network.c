@@ -127,7 +127,7 @@ int http_response_extract_body(unsigned char* http_data, int http_data_len, unsi
     return -1;
 }
 
-void http_explicit_str(unsigned char* data, int data_len, unsigned char* out)
+void http_explicit_hex(unsigned char* data, int data_len, unsigned char* out)
 {
     // e.g. `ab0f4e` -> "%ab%0f%4e"
     for(int i = 0; i < data_len; i++)

@@ -21,7 +21,7 @@ int main(int argc, unsigned char *argv[])
     printf("%s\n", bencoded_torrent);
     b_print(bencoded_torrent);
 
-    get_tracker_info(bencoded_torrent, NULL);
+    tracker_get_peers(bencoded_torrent, NULL);
 
     return 0;
 }

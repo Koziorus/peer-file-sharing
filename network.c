@@ -140,3 +140,42 @@ void send_no_deadlock(int fd, const void *buf, size_t n, int flags, int (*on_rec
         }
     }
 }
+
+// returns 0 on success, -1 when there's no body
+int http_get_body(unsigned char* http_data, int http_data_len, unsigned char* body)
+{
+    // until "\r\n\r\n"
+    int i = 0;
+    while(!(http_data[i] == '\r' && http_data[i+1] == '\n' && http_data[i+2] == '\r' && http_data[i+3] == '\n'))
+    {
+        i++;
+    }
+
+    i += 4; // jump over the "\r\n\r\n"
+
+    if(i < http_data_len)
+    {
+        int body_len = http_data_len - i;
+        memcpy(body, http_data + i, body_len);
+        body[body_len] = '\0';
+        return 0;
+    }
+
+    return -1;
+}
+
+void http_explicit_str(unsigned char* data, int data_len, unsigned char* out)
+{
+    // e.g. `ab0f4e` -> "%ab%0f%4e"
+    for(int i = 0; i < data_len; i++)
+    {
+        if(i == 0)
+        {
+            sprintf(out, "%%%02x", data[i]);
+        }
+        else
+        {
+            sprintf(out, "%.*s%%%02x", i*3, out, data[i]); // i* 3 -> for every data[i] there is "%xx"
+        }
+    }
+}

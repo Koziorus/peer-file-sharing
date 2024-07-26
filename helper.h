@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-void generate_rand_string(int n, unsigned char *out);
+void generate_rand_str(int n, unsigned char *out);
 
 void failure(char *function_name);
 

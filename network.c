@@ -4,17 +4,23 @@
 
 // waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
 // normally connect() timeouts with a OS specified time (usually ~20s)
+// returns 0 on successfull connection
 int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct timeval timeout)
 {
     // set option to not block the socket on operations:
     int flags = fcntl(fd, F_GETFL, 0); // get flags
     fcntl(fd, F_SETFL, flags | O_NONBLOCK); // set flags
 
-    int err = connect(fd, addr, len);
-    if(err != EINPROGRESS) // EINPROGRESS expected
+    if(connect(fd, addr, len) == 0)
     {
-        failure("connect");
+        return -1;
     }
+
+    if(errno != EINPROGRESS) // EINPROGRESS expected
+    {
+        return -1;
+    }
+    
 
     fd_set set;
     FD_ZERO(&set);
@@ -36,7 +42,7 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct t
             option_len = sizeof(option_value);
             if(getsockopt(fd, SOL_SOCKET, SO_ERROR, &option_value, &option_len) == -1)
             {
-                failure("getsockopt");
+                return -1;
             }
 
             if(option_value == 0)
@@ -144,7 +150,7 @@ void http_explicit_hex(unsigned char* data, int data_len, unsigned char* out)
 }
 
 // returns connected socket
-int start_TCP_connection(char* remote_domain_name, char* remote_port, char* local_addr_out, char* local_port_out)
+int start_TCP_connection(char* remote_domain_name, char* remote_port, char* local_addr_out, char* local_port_out, int* socket_out)
 {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -153,39 +159,49 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
     struct addrinfo* remote_addrinfo;
     if(getaddrinfo(remote_domain_name, remote_port, &hints, &remote_addrinfo) != 0)
     {
-        failure("getaddrinfo");
+        return -1;
     }
 
     unsigned char remote_host_buf[MAX_STR_LEN];
     unsigned char remote_serv_buf[MAX_STR_LEN];
     if(getnameinfo(remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, remote_host_buf, sizeof(remote_host_buf), remote_serv_buf, sizeof(remote_serv_buf), NI_NUMERICHOST) != 0)
     {
-        failure("getnameinfo");
+        return -1;
     }
 
     int peer_socket = socket(remote_addrinfo->ai_family, remote_addrinfo->ai_socktype, remote_addrinfo->ai_protocol);
     if(socket == -1)
     {
-        failure("socket");
+        return -1;
     }
 
-    if(connect(peer_socket, remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen) == -1)
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    // TODO: better handle passing errors/messages between function calls
+    int ret = connect_timeout(peer_socket, remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, timeout);
+    if(ret == 1)
     {
-        failure("connect");
+        return -2; //Connection timeout
+    }
+    else if(ret == -1)
+    {
+        return -1;
     }
 
     struct sockaddr local_addr;
     socklen_t local_addr_len = sizeof(local_addr);
     if(getsockname(peer_socket, &local_addr, &local_addr_len) == -1)
     {
-        failure("getsockname");
+        return -1;
     }
 
     unsigned char local_host_buf[MAX_STR_LEN];
     unsigned char local_serv_buf[MAX_STR_LEN];
     if(getnameinfo(&local_addr, local_addr_len, local_host_buf, sizeof(local_host_buf), local_serv_buf, sizeof(local_serv_buf), NI_NUMERICHOST | NI_NUMERICSERV) != 0)
     {
-        failure("getnameinfo");
+        return -1;
     }
 
     strcpy(local_addr_out, local_host_buf);
@@ -197,5 +213,7 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
 
     freeaddrinfo(remote_addrinfo);
 
-    return peer_socket;
+    *socket_out = peer_socket;
+
+    return 0;
 }

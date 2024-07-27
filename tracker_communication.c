@@ -163,7 +163,11 @@ int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[S
 
     char local_addr[MAX_STR_LEN];
     char local_port[MAX_STR_LEN];
-    int local_socket = start_TCP_connection(remote_domain_name, remote_port, local_addr, local_port);
+    int local_socket;
+    if(start_TCP_connection(remote_domain_name, remote_port, local_addr, local_port, &local_socket) == -1)
+    {
+        return -1;
+    }
 
     unsigned char info_hash_escaped[SHA_DIGEST_LENGTH * 3 + 1]; // for each bytes there is a '%' and 2 hex digits, at the end a null terminator
     http_explicit_hex(info_hash, SHA_DIGEST_LENGTH, info_hash_escaped);

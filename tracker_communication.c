@@ -42,7 +42,7 @@ void get_full_numeric_addr(unsigned char* data, unsigned char* addr_out, unsigne
     sprintf(port_out, "%d", port);
 }
 
-int http_GET(int local_socket, char* resource_name, char* params, char* headers, char* response_out)
+int http_GET(int local_socket, char* resource_name, char* params, char* headers, char* response_out, int* bytes_received_out)
 {
     unsigned char request[MAX_STR_LEN];
     sprintf(request, "GET /%s?%s HTTP/1.1\r\n%s\r\n\r\n", resource_name, params, headers); // \r\n\r\n is the ending
@@ -54,26 +54,24 @@ int http_GET(int local_socket, char* resource_name, char* params, char* headers,
     int bytes_sent = send(local_socket, request, strlen(request), 0);
     if(bytes_sent < strlen(request) || bytes_sent == -1)
     {
-        failure("send");
+        return -1;
     }
 
     unsigned char response[MAX_HTTP_RESPONSE_LEN];
     int bytes_received = recv(local_socket, response, sizeof(response), 0);
     if(bytes_received == -1)
     {
-        failure("recv");
+        return -1;
     }
 
 #ifdef LOG_VISIBLE
     printf("Received (%d bytes):\n%.*s\n", bytes_received, bytes_received, response);
 #endif
     
-    // unsigned char explicit_response[MAX_HTTP_RESPONSE_LEN * 2]; // potentially two times the size of original response
-    // explicit_str(response, bytes_received, explicit_response);
-    // printf("%s\n", explicit_response);
-
     strncpy(response_out, response, bytes_received);
-    return bytes_received;
+    *bytes_received_out = bytes_received;
+    
+    return 0;
 }
 
 // pass NULL as the last argument
@@ -129,7 +127,7 @@ void create_headers(unsigned char* headers_out, ...)
 }
 
 // connects to a tracker and gets peer addresses
-int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[SHA_DIGEST_LENGTH], unsigned char local_peer_id[SHA_DIGEST_LENGTH], unsigned char peer_addresses[][MAX_STR_LEN], unsigned char peer_ports[][MAX_STR_LEN])
+int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[SHA_DIGEST_LENGTH], unsigned char local_peer_id[SHA_DIGEST_LENGTH], unsigned char peer_addresses[][MAX_STR_LEN], unsigned char peer_ports[][MAX_STR_LEN], int* peers_num_out)
 {
     struct TorrentData torrent_data;
     deserialize_bencode_torrent(&torrent_data, bencoded_torrent);
@@ -161,10 +159,14 @@ int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[S
     strncpy(resource_name, torrent_data.announce + resource_offset, resource_name_len);
     resource_name[resource_name_len] = '\0';
 
+    struct timeval timeout;
+    timeout.tv_sec = TRACKER_CONNECT_TIMEOUT;
+    timeout.tv_usec = 0;
+
     char local_addr[MAX_STR_LEN];
     char local_port[MAX_STR_LEN];
     int local_socket;
-    if(start_TCP_connection(remote_domain_name, remote_port, local_addr, local_port, &local_socket) == -1)
+    if(start_TCP_connection(remote_domain_name, remote_port, local_addr, local_port, &local_socket, &timeout) == -1)
     {
         return -1;
     }
@@ -198,7 +200,11 @@ int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[S
                             NULL);
 
     char response[MAX_HTTP_RESPONSE_LEN];
-    int bytes_received = http_GET(local_socket, resource_name, params, headers, response);
+    int bytes_received;
+    if(http_GET(local_socket, resource_name, params, headers, response, &bytes_received) == -1)
+    {
+        failure("http_GET");
+    }
     
     close(local_socket);
 
@@ -222,10 +228,11 @@ int tracker_get_peers(unsigned char* bencoded_torrent, unsigned char info_hash[S
 
     free(torrent_data.info.pieces);
 
-    return peers_num;
+    *peers_num_out = peers_num;
+
+    return 0;
 }
 
-/*
-TODO:
-- moze byc cos nie tak z przetwarzaniem/odbieraniem danych od trackera (czesc danych jest zerowa)
-*/
+
+// TODO:
+// - moze byc cos nie tak z przetwarzaniem/odbieraniem danych od trackera (czesc danych jest zerowa)

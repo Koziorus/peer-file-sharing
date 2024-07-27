@@ -5,7 +5,7 @@
 // waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
 // normally connect() timeouts with a OS specified time (usually ~20s)
 // returns 0 on successfull connection
-int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct timeval timeout)
+int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct timeval* timeout)
 {
     // set option to not block the socket on operations:
     int flags = fcntl(fd, F_GETFL, 0); // get flags
@@ -20,18 +20,17 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct t
     {
         return -1;
     }
-    
 
     fd_set set;
     FD_ZERO(&set);
     FD_SET(fd, &set);
 
     fd_set reads = set, writes = set;
-    select(fd + 1, &reads, &writes, 0, &timeout);
+    select(fd + 1, &reads, &writes, 0, timeout);
 
     // return value of send() in this line would indicate if we connected successfully
 
-    int ret = 1;
+    int ret = -2; // timeout
 
     if(FD_ISSET(fd, &writes))
     {
@@ -40,26 +39,30 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct t
             // check for errors
             int option_value, option_len;
             option_len = sizeof(option_value);
-            if(getsockopt(fd, SOL_SOCKET, SO_ERROR, &option_value, &option_len) == -1)
-            {
-                return -1;
-            }
 
-            if(option_value == 0)
+            int getsockopt_ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &option_value, &option_len);
+
+            if(getsockopt_ret == -1)
             {
-                ret = 0;
+                ret = -1;
             }
             else
             {
-                ret = 1;
+                errno = option_value; // retrieve errno after getsockopt cleared it
+                if(option_value == 0)
+                {
+                    ret = 0;
+                }
+                else
+                {
+                    ret = -1;
+                }
             }
         }
         else
         {
             ret = 0; // connected
         }
-
-        ret = 0;
     }
 
     fcntl(fd, F_SETFL, flags); // set flags back -> to start blocking the socket again
@@ -149,8 +152,7 @@ void http_explicit_hex(unsigned char* data, int data_len, unsigned char* out)
     }
 }
 
-// returns connected socket
-int start_TCP_connection(char* remote_domain_name, char* remote_port, char* local_addr_out, char* local_port_out, int* socket_out)
+int start_TCP_connection(char* remote_domain_name, char* remote_port, char* local_addr_out, char* local_port_out, int* socket_out, struct timeval* timeout)
 {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -175,19 +177,10 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
         return -1;
     }
 
-    struct timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-
-    // TODO: better handle passing errors/messages between function calls
     int ret = connect_timeout(peer_socket, remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, timeout);
-    if(ret == 1)
+    if(ret != 0)
     {
-        return -2; //Connection timeout
-    }
-    else if(ret == -1)
-    {
-        return -1;
+        return ret;
     }
 
     struct sockaddr local_addr;
@@ -217,3 +210,6 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
 
     return 0;
 }
+
+
+// TODO document functions (do it using some standard/extension)

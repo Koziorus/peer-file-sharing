@@ -35,16 +35,24 @@ int main(int argc, unsigned char *argv[])
 
     unsigned char peer_addrs[100][MAX_STR_LEN];
     unsigned char peer_ports[100][MAX_STR_LEN];
-    int peers_num = tracker_get_peers(bencoded_torrent, info_hash, local_peer_id, peer_addrs, peer_ports);
+    int peers_num;
+    if(tracker_get_peers(bencoded_torrent, info_hash, local_peer_id, peer_addrs, peer_ports, &peers_num) == -1)
+    {
+        failure("tracker_get_peers");
+    }
 
     for(int i = 0; i < peers_num; i++)
     {
         printf("%s:%s\n", peer_addrs[i], peer_ports[i]);
 
+        struct timeval peer_timeout;
+        peer_timeout.tv_sec = 5;
+        peer_timeout.tv_usec = 0;
+
         unsigned char local_addr[MAX_STR_LEN];
         unsigned char local_port[MAX_STR_LEN];
         int local_socket;
-        int ret = start_TCP_connection(peer_addrs[i], peer_ports[i], local_addr, local_port, &local_socket);
+        int ret = start_TCP_connection(peer_addrs[i], peer_ports[i], local_addr, local_port, &local_socket, &peer_timeout);
         if(ret == -1)
         {
             if(errno == CONNECTION_REFUSED)
@@ -105,11 +113,15 @@ int main(int argc, unsigned char *argv[])
         {
             unsigned char response[MAX_STR_LEN];
             int bytes_received = recv(local_socket, response, sizeof(response), 0);
+            if(bytes_received == -1)
+            {
+                failure("recv");
+            }
             printf("Received (%d bytes): %.*s\n", bytes_received, bytes_received, response);
         }
         else
         {
-            printf("Timeout...\n");
+            printf("Response timeout...\n");
         }
 
         close(local_socket);
@@ -117,10 +129,9 @@ int main(int argc, unsigned char *argv[])
 
     return 0;
 }
-    
-/*
-TODO:
-- add checking if HTTP response is "OK" and only then proceed to extract the bencode body
-- create a TODO list with tasks to include error/exceptions handling in various parts of the code 
-- ! change bencode.c so that it doesnt use checking of '\0' to end loops (except checking for `path`)
-*/
+ 
+// TODO general
+// [ ] add checking if HTTP response is "OK" and only then proceed to extract the bencode body
+// [ ] create a TODO list with tasks to include error/exceptions handling in various parts of the code 
+// [ ] ! change bencode.c so that it doesnt use checking of '\0' to end loops (except checking for `path`)
+// [ ] make most of the functions return int that will be used to pass error/messages (-1 for errno erros; 0 for success; positive for other errors/messages); all of the data should be outputed from a function using a pointer parameter

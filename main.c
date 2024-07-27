@@ -2,12 +2,14 @@
 #include "helper.h"
 #include "tracker_communication.h"
 
+#define CONNECTION_REFUSED 111
+
 int main(int argc, unsigned char *argv[])
 {
     srand(time(NULL)); // for random peer_id generation
 
     FILE* torrent_file;
-    torrent_file = fopen("debian-12.6.0-i386-netinst.iso.torrent", "r");
+    torrent_file = fopen("debian-12.6.0-amd64-netinst.iso.torrent", "r");
     
     if(torrent_file == NULL)
     {
@@ -41,7 +43,25 @@ int main(int argc, unsigned char *argv[])
 
         unsigned char local_addr[MAX_STR_LEN];
         unsigned char local_port[MAX_STR_LEN];
-        int local_socket = start_TCP_connection(peer_addrs[i], peer_ports[i], local_addr, local_port);
+        int local_socket;
+        int ret = start_TCP_connection(peer_addrs[i], peer_ports[i], local_addr, local_port, &local_socket);
+        if(ret == -1)
+        {
+            if(errno == CONNECTION_REFUSED)
+            {
+                printf("Connection refused...\n");
+                continue;
+            }
+            else
+            {
+                failure("start_TCP_connection");
+            }
+        }
+        else if(ret == -2)
+        {
+            printf("Connection timeout...\n");
+            continue;
+        }
 
         //message = \x13BitTorrent protocol\x00\x00\x00\x00\x00\x00\x00\x00`info_hash``local_peer_id`
         unsigned char message[MAX_STR_LEN];
@@ -63,9 +83,34 @@ int main(int argc, unsigned char *argv[])
             failure("send");
         }
 
-        unsigned char response[MAX_STR_LEN];
-        int bytes_received = recv(local_socket, response, sizeof(response), 0);
-        printf("Received (%d bytes): %.*s\n", bytes_received, bytes_received, response);
+        printf("Sending message...\n");
+
+        fd_set set;
+        FD_ZERO(&set);
+        FD_SET(local_socket, &set);
+        int max_socket = local_socket;
+
+        fd_set reads = set;
+
+        struct timeval timeout; // timeout = 1s
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        if(select(max_socket + 1, &reads, 0, 0, &timeout) == -1)
+        {
+            failure("select");
+        }
+
+        if(FD_ISSET(local_socket, &reads))
+        {
+            unsigned char response[MAX_STR_LEN];
+            int bytes_received = recv(local_socket, response, sizeof(response), 0);
+            printf("Received (%d bytes): %.*s\n", bytes_received, bytes_received, response);
+        }
+        else
+        {
+            printf("Timeout...\n");
+        }
 
         close(local_socket);
     }

@@ -17,15 +17,55 @@
 #include <stdlib.h>
 #include "helper.h"
 
-// should be less than 20s
-// in seconds
-#define TCP_CONNECTION_TIMEOUT 5
-
-// WARNING: timeout is a value, not a pointer
+/**
+ * @brief connect() with a specified timeout
+ * waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
+normally connect() timeouts with a OS specified time (usually ~20s)
+ * 
+ * @param fd socket
+ * @param addr 
+ * @param len 
+ * @param timeout 
+ * @return int;
+ * 0 on success;
+ * -1 on error (errno);
+ * -2 on timeout
+ */
 int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct timeval* timeout);
 
+/**
+ * @brief copies body of a http response
+ * 
+ * @param http_data input
+ * @param http_data_len 
+ * @param body 
+ * @return int 
+ * 0 on success
+ * -1 on no body
+ */
 int http_response_extract_body(unsigned char *http_data, int http_data_len, unsigned char *body);
 
+/**
+ * @brief generates an explicit hexadecimal string from provided data
+ * 
+ * @param data input
+ * @param data_len 
+ * @param out 
+ */
 void http_explicit_hex(unsigned char *data, int data_len, unsigned char *out);
 
+/**
+ * @brief starts a TCP connection with specified connect timeout
+ * 
+ * @param remote_domain_name 
+ * @param remote_port 
+ * @param local_addr_out 
+ * @param local_port_out 
+ * @param socket_out 
+ * @param timeout s
+ * @return int;
+ * 0 on success;
+ * -1 on error;
+ * other -> connect_timeout
+ */
 int start_TCP_connection(char *remote_domain_name, char *remote_port, char *local_addr_out, char *local_port_out, int *socket_out, struct timeval *timeout);

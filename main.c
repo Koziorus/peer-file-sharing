@@ -4,6 +4,13 @@
 
 #define CONNECTION_REFUSED 111
 
+/**
+ * @brief main function
+ * 
+ * @param argc not in use
+ * @param argv not in use
+ * @return int 
+ */
 int main(int argc, unsigned char *argv[])
 {
     srand(time(NULL)); // for random peer_id generation
@@ -62,7 +69,7 @@ int main(int argc, unsigned char *argv[])
             }
             else
             {
-                failure("start_TCP_connection");
+                failure("start_T￼CP_connection");
             }
         }
         else if(ret == -2)
@@ -132,6 +139,6 @@ int main(int argc, unsigned char *argv[])
  
 // TODO general
 // [ ] add checking if HTTP response is "OK" and only then proceed to extract the bencode body
-// [ ] create a TODO list with tasks to include error/exceptions handling in various parts of the code 
 // [ ] ! change bencode.c so that it doesnt use checking of '\0' to end loops (except checking for `path`)
-// [ ] make most of the functions return int that will be used to pass error/messages (-1 for errno erros; 0 for success; positive for other errors/messages); all of the data should be outputed from a function using a pointer parameter
+// [ ] add documentation for all functions
+// [ ] add asserts

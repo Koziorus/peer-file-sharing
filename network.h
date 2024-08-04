@@ -39,11 +39,11 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct t
  * @param http_data input
  * @param http_data_len 
  * @param body 
- * @return int 
- * 0 on success
+ * @return int; 
+ * 0 on success;
  * -1 on no body
  */
-int http_response_extract_body(unsigned char *http_data, int http_data_len, unsigned char *body);
+int http_response_extract_body(uchar *http_data, int http_data_len, uchar *body, int *body_len_out);
 
 /**
  * @brief generates an explicit hexadecimal string from provided data
@@ -52,7 +52,7 @@ int http_response_extract_body(unsigned char *http_data, int http_data_len, unsi
  * @param data_len 
  * @param out 
  */
-void http_explicit_hex(unsigned char *data, int data_len, unsigned char *out);
+void http_explicit_hex(uchar *data, int data_len, uchar *out);
 
 /**
  * @brief starts a TCP connection with specified connect timeout

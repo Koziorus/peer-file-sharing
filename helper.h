@@ -5,13 +5,22 @@
 #include <errno.h>
 #include <stdio.h>
 
+typedef unsigned char uchar;
+
+/**
+ * @brief Used for logging additional information inside deeper functions.
+ * To enable use `#define LOG(X) X`.
+ * To disable use `#define LOG(X)`.  
+ */
+#define LOG(X)
+
 /**
  * @brief Generates n random bytes
  * 
  * @param n 
  * @param out 
  */
-void generate_rand_str(int n, unsigned char *out);
+void generate_rand_str(int n, uchar *out);
 
 /**
  * @brief Prints an errno error message and calls exit()

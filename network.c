@@ -1,7 +1,5 @@
 #include "network.h"
 
-#define LOG_VISIBLE
-
 // waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
 // normally connect() timeouts with a OS specified time (usually ~20s)
 // returns 0 on successfull connection
@@ -30,7 +28,7 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, struct t
 
     // return value of send() in this line would indicate if we connected successfully
 
-    int ret = -2; // timeout
+    int ret = 1; // timeout
 
     if(FD_ISSET(fd, &writes))
     {
@@ -113,8 +111,7 @@ void send_no_deadlock(int fd, const void *buf, size_t n, int flags, int (*on_rec
     }
 }
 
-// returns 0 on success, -1 when there's no body
-int http_response_extract_body(unsigned char* http_data, int http_data_len, unsigned char* body)
+int http_response_extract_body(uchar* http_data, int http_data_len, uchar* body, int* body_len_out)
 {
     // until "\r\n\r\n"
     int i = 0;
@@ -130,13 +127,14 @@ int http_response_extract_body(unsigned char* http_data, int http_data_len, unsi
         int body_len = http_data_len - i;
         memcpy(body, http_data + i, body_len);
         body[body_len] = '\0';
+        *body_len_out = body_len;
         return 0;
     }
 
     return -1;
 }
 
-void http_explicit_hex(unsigned char* data, int data_len, unsigned char* out)
+void http_explicit_hex(uchar* data, int data_len, uchar* out)
 {
     // e.g. `ab0f4e` -> "%ab%0f%4e"
     for(int i = 0; i < data_len; i++)
@@ -164,8 +162,8 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
         return -1;
     }
 
-    unsigned char remote_host_buf[MAX_STR_LEN];
-    unsigned char remote_serv_buf[MAX_STR_LEN];
+    uchar remote_host_buf[MAX_STR_LEN];
+    uchar remote_serv_buf[MAX_STR_LEN];
     if(getnameinfo(remote_addrinfo->ai_addr, remote_addrinfo->ai_addrlen, remote_host_buf, sizeof(remote_host_buf), remote_serv_buf, sizeof(remote_serv_buf), NI_NUMERICHOST) != 0)
     {
         return -1;
@@ -190,8 +188,8 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
         return -1;
     }
 
-    unsigned char local_host_buf[MAX_STR_LEN];
-    unsigned char local_serv_buf[MAX_STR_LEN];
+    uchar local_host_buf[MAX_STR_LEN];
+    uchar local_serv_buf[MAX_STR_LEN];
     if(getnameinfo(&local_addr, local_addr_len, local_host_buf, sizeof(local_host_buf), local_serv_buf, sizeof(local_serv_buf), NI_NUMERICHOST | NI_NUMERICSERV) != 0)
     {
         return -1;
@@ -200,9 +198,7 @@ int start_TCP_connection(char* remote_domain_name, char* remote_port, char* loca
     strcpy(local_addr_out, local_host_buf);
     strcpy(local_port_out, local_serv_buf);
 
-#ifdef LOG_VISIBLE
-    printf("Connected: %s (%s) -> %s (%s)\n", local_host_buf, local_serv_buf, remote_host_buf, remote_serv_buf);
-#endif
+    LOG(printf("Connected: %s (%s) -> %s (%s)\n", local_host_buf, local_serv_buf, remote_host_buf, remote_serv_buf);)
 
     freeaddrinfo(remote_addrinfo);
 

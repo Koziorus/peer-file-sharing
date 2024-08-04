@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "sha.h": "c",
+        "bencode.h": "c",
+        "network.h": "c",
+        "types.h": "c",
+        "socket.h": "c",
+        "stdio.h": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "byteswap.h": "c",
+        "helper.h": "c",
+        "time.h": "c",
+        "http_helper.h": "c",
+        "tracker_communication.h": "c",
+        "netdb.h": "c",
+        "random": "c"
+    },
+    "doxygen_runner.configuration_file_override": "${workspaceFolder}/Doxyfile",
+}

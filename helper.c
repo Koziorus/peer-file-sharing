@@ -1,5 +1,19 @@
 #include "helper.h"
 
+void print_nested(int nesting, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    for(int i = 0; i < nesting; i++)
+    {
+        printf("\t");
+    }
+
+    vprintf(format, args);
+
+    va_end(args);
+}
+
 // `out` should be allocated beforehand
 // does not include null terminator
 void generate_rand_str(int n, uchar* out)

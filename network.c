@@ -1,5 +1,11 @@
 #include "network.h"
 
+uchar* msg_start_TCP_connection[MAX_STR_LEN] =
+{
+    "Connected",
+    "Timed out"
+};
+
 // waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)
 // normally connect() timeouts with a OS specified time (usually ~20s)
 // returns 0 on successfull connection

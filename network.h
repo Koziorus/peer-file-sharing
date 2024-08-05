@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include "helper.h"
 
+extern uchar* msg_start_TCP_connection[MAX_STR_LEN];
+
 /**
  * @brief connect() with a specified timeout
  * waits until connected with custom timeout (if timeout is too high then the connect() may time out quicker)

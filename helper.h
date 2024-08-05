@@ -4,15 +4,22 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 typedef unsigned char uchar;
 
 /**
  * @brief Used for logging additional information inside deeper functions.
- * To enable use `#define LOG(X) X`.
- * To disable use `#define LOG(X)`.  
+ * To enable uncomment `#define LOG(X) X`.
+ * To disable comment `#define LOG(X) X`. 
  */
-#define LOG(X)
+// #define LOG(X) X
+
+#ifndef LOG
+#   define LOG(X)
+#endif
+
+void print_nested(int nesting, const char *format, ...);
 
 /**
  * @brief Generates n random bytes

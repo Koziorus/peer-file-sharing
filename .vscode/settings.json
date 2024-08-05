@@ -14,7 +14,9 @@
         "http_helper.h": "c",
         "tracker_communication.h": "c",
         "netdb.h": "c",
-        "random": "c"
+        "random": "c",
+        "peer_communication.h": "c",
+        "inet.h": "c"
     },
     "doxygen_runner.configuration_file_override": "${workspaceFolder}/Doxyfile",
 }

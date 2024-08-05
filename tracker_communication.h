@@ -3,7 +3,6 @@
 #include "network.h"
 #include "bencode.h"
 #include <openssl/sha.h>
-#include <stdarg.h>
 
 #define MAX_PARAM_NUM 10
 #define MAX_HEADER_NUM 10

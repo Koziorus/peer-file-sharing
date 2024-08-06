@@ -27,8 +27,8 @@ int get_bt_handshake_data(uchar* message, int message_len, uchar* info_hash_out,
 
 uchar* msg_peer_handshake[MAX_STR_LEN] = 
 {
-    "Matching",
-    "Not matching",
+    "Matched",
+    "Not matched",
     "Wrong message format",
     "Response timeout"
 };

@@ -137,18 +137,20 @@ int tracker_get_peers(uchar* bencode_torrent, int bencode_str_len, uchar info_ha
         printf("\n");
     )
 
+    //// FIX variable names
     uchar remote_domain_name[MAX_STR_LEN];
     int protocol_offset = strlen("http://");
     int port_offset = strcspn(torrent_data.announce + protocol_offset, ":") + protocol_offset + 1;
     int resource_offset = strcspn(torrent_data.announce + port_offset, "/") + port_offset + 1;
+    ////
 
-    int remote_domain_name_len = strlen(torrent_data.announce) - (port_offset - protocol_offset) + 1; // make space for null terminator
-    strncpy(remote_domain_name, torrent_data.announce + protocol_offset, remote_domain_name_len - 1); 
+    int remote_domain_name_len = strlen(torrent_data.announce) - (port_offset - protocol_offset + 1); // make space for null terminator
+    strncpy(remote_domain_name, torrent_data.announce + protocol_offset, remote_domain_name_len); 
     remote_domain_name[remote_domain_name_len] = '\0';
 
     uchar remote_port[MAX_STR_LEN];
-    int remote_port_len = (resource_offset - port_offset); // has space for null terminator
-    strncpy(remote_port, torrent_data.announce + port_offset, remote_port_len - 1);
+    int remote_port_len = (resource_offset - (port_offset + 1));
+    strncpy(remote_port, torrent_data.announce + port_offset, remote_port_len);
     remote_port[remote_port_len] = '\0';
 
     uchar resource_name[MAX_STR_LEN];

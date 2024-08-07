@@ -134,6 +134,21 @@ uint32_t be32_swap_le32(uint32_t x)
     return __bswap_32(x);
 }
 
+#ifndef __INTELLISENSE__ // suppressing an intellisense bug with C23 feature
+typedef enum : uchar
+{
+    CHOKE = 0,
+    UNCHOKE = 1,
+    INTERESTED = 2,
+    NOT_INTERESTED = 3,
+    HAVE = 4,
+    BITFIELD = 5,
+    REQUEST = 6,
+    PIECE = 7,
+    CANCEL = 8
+} MessageType;
+#else
+// only above enum will really be compiled and used. The enum below is used only to not cause intellisense error squiggles of not defined enum type
 typedef enum
 {
     CHOKE = 0,
@@ -146,6 +161,7 @@ typedef enum
     PIECE = 7,
     CANCEL = 8
 } MessageType;
+#endif
 
 uchar* MessageType_STR[MAX_STR_LEN] =
 {
@@ -169,7 +185,7 @@ uchar* MessageType_STR[MAX_STR_LEN] =
 struct Message
 {
     uint32_t length; // (LE) size of the payload (X bytes) and id (1 byte)
-    MessageType id; // must be casted to (uchar*) when sent in a message
+    MessageType id;
     uchar* payload;
 };
 
@@ -224,18 +240,18 @@ int recv_message(int local_socket, struct Message* message_out)
  * `1` on not sending the whole message (TEMP)
  * `-1` on error (errno)
  */
-int send_message(int local_socket, struct Message* message)
+int send_message(int local_socket, struct Message message)
 {
     // TODO: check if the entire message was sent in one go, if not then try sending the rest until it succeeds
 
-    int message_data_size = sizeof(uint32_t) + message->length;
+    int message_data_size = sizeof(uint32_t) + message.length;
     uchar* message_data = (uchar*)malloc(message_data_size);
     
-    uint32_t length_be = be32_swap_le32(message->length);
+    uint32_t length_be = be32_swap_le32(message.length);
     memcpy(message_data, &length_be, sizeof(length_be));
 
-    memcpy(message_data + sizeof(length_be), (uchar*)(&message->id), 1);
-    memcpy(message_data + sizeof(length_be) + 1, message->payload, message->length - 1);
+    memcpy(message_data + sizeof(length_be), &(message.id), 1);
+    memcpy(message_data + sizeof(length_be) + 1, message.payload, (int)message.length - 1);
 
     int bytes_sent = send(local_socket, message_data, message_data_size, 0);
     if(bytes_sent == -1)
@@ -246,6 +262,8 @@ int send_message(int local_socket, struct Message* message)
     {
         return 1;
     }
+
+    return 0;
 }
 
 /**
@@ -263,8 +281,157 @@ uchar get_bit_from_data(int index, uchar* data)
     return temp >> bit_id;
 }
 
+// 'A bitfield of the wrong length is considered an error. Clients should drop the connection if they receive bitfields that are not of the correct size, or if the bitfield has any of the spare bits set.'
+/**
+ * @brief 
+ * 
+ * @param bitfield 
+ * @param bitfield_len 
+ * @param torrent_size 
+ * @return int;
+ * `0` on correct bitfield size;
+ * `1` on incorrect bitfield size 
+ */
+int check_bitfield_size_match_torrent_size(uchar* bitfield, int bitfield_len, int torrent_size)
+{
+    // 8 blocks per byte
+    int bitfield_size = bitfield_len * 8 * BLOCK_SIZE;
+
+    // look for the first active bit from the end (here it's from LSB)
+    uchar last_block = bitfield[bitfield_len - 1];
+    int last_block_potential_size = 1; // assumes that the bitfield byte has at least one block (1 bit in use)
+
+    // check 7 bits
+    for(int i = 0; i < 7; i++)
+    {
+        unsigned int bit_value = (last_block & (1 << i)) >> i;
+        if(bit_value == 1)
+        {
+            last_block_potential_size = 8 - i;
+            break;
+        }
+    }
+
+    if(bitfield_size - last_block_potential_size > torrent_size)
+    {
+         return 1; 
+    }
+    else if(bitfield_size - last_block_potential_size <= torrent_size)
+    {
+        if((torrent_size - (bitfield_size - last_block_potential_size) <= 8 - last_block_potential_size))
+        {
+            return 0;
+        }
+        else
+        {
+            return 1;
+        }
+    }   
+}
+
+/**
+ * @brief 
+ * 
+ * @param bitfield_message 
+ * @param resource_queue 
+ * @param resource_block_out 
+ * @return int;
+ * `0` on success;
+ * `1` on no available piece for the whole resource queue
+ */
+int search_for_resource_for_peer(struct Message bitfield_message, struct ResourceQueue resource_queue, struct ResourceBlock* resource_block_out)
+{
+    struct ResourceBlock resource_block;
+    // TODO: continue to the next peer when the whole queue has been searched (check for the address of data_ptr)
+    uchar* first_resource_ptr = resource_queue.front->resource_block.data_ptr; 
+    
+    uchar is_piece_available = 0;
+    for(int i = 0; is_piece_available == 0; i++)
+    {
+        if(i != 0 && resource_block.data_ptr == first_resource_ptr)
+        {
+            return 1;
+        }
+
+        resource_queue_pop(&resource_queue, &resource_block);
+        is_piece_available = get_bit_from_data(resource_block.piece_index, bitfield_message.payload);
+
+        if(is_piece_available == 0)
+        {
+            resource_queue_push(&resource_queue, resource_block);
+        }
+    }
+
+    *resource_block_out = resource_block;
+
+    return 0;
+}
+
+int download_piece(int local_socket, struct ResourceBlock resource_block)
+{
+    struct Message request_message;
+    request_message.id = REQUEST;
+
+    // payload
+    uint32_t request_index_be = be32_swap_le32(resource_block.piece_index);
+    uint32_t request_begin_be = be32_swap_le32(resource_block.piece_offset);
+    uint32_t request_length_be = be32_swap_le32(resource_block.size);
+
+    int request_payload_size = sizeof(request_index_be) + sizeof(request_begin_be) + sizeof(request_length_be);
+    request_message.payload = (uchar*)malloc(request_payload_size); // MEM
+
+    // message length
+    request_message.length = sizeof(request_message.id) + request_payload_size;
+
+    // message length (BE)
+    uint32_t request_message_length_be = be32_swap_le32(request_message.length);
+
+    uchar* req_payload_part_ptr = request_message.payload;
+    memcpy(req_payload_part_ptr, &request_index_be, sizeof(request_index_be));
+    req_payload_part_ptr += sizeof(request_index_be);
+    memcpy(req_payload_part_ptr, &request_begin_be, sizeof(request_begin_be));
+    req_payload_part_ptr += request_begin_be;
+    memcpy(req_payload_part_ptr, &request_length_be, sizeof(request_length_be));
+
+    if(send_message(local_socket, request_message) != 0)
+    {
+        return 1; // didnt send the whole message or error
+    }
+
+    free(request_message.payload);
+
+    struct Message piece_message;
+    if(recv_message(local_socket, &piece_message) != 0)
+    {
+        return 2; // keep alive or error
+    }
+
+    if(piece_message.id != PIECE)
+    {
+        return 3; // didn't receive a piece message
+    }
+
+    int recv_block_size = (int)piece_message.length - sizeof(piece_message.id);
+    if(recv_block_size != BLOCK_SIZE)
+    {
+        return 4; // received a block with a size that does not match size from request message
+    }
+
+    uint32_t recv_piece_index_be;
+    uint32_t recv_piece_offset_be;
+
+    uchar* recv_piece_payload_part_ptr = piece_message.payload;
+    memcpy(&recv_piece_index_be, recv_piece_payload_part_ptr, sizeof(recv_piece_index_be));
+    recv_piece_payload_part_ptr += sizeof(recv_piece_index_be);
+    memcpy(&recv_piece_offset_be, recv_piece_payload_part_ptr, sizeof(recv_piece_offset_be));
+    recv_piece_payload_part_ptr += sizeof(recv_piece_offset_be);
+    memcpy(resource_block.data_ptr, recv_piece_payload_part_ptr, recv_block_size);
+
+    return 0;
+}
+
 // WIP
-int download_torrent(uchar* bencode_torrent, int bencode_torrent_len)
+int download_file(uchar* bencode_torrent, int bencode_torrent_len)
 {
     // generate info_hash
     uchar info_str[MAX_BENCODED_TORRENT_LEN];
@@ -284,7 +451,7 @@ int download_torrent(uchar* bencode_torrent, int bencode_torrent_len)
         failure("tracker_get_peers");
     }
 
-    // duplicate - FIX
+    // duplicate - FIX -> tracker_get_peers
     struct TorrentData torrent_data;
     deserialize_bencode_torrent(&torrent_data, bencode_torrent, bencode_torrent_len);
 
@@ -292,7 +459,7 @@ int download_torrent(uchar* bencode_torrent, int bencode_torrent_len)
     uchar* pieces_mem = (uchar*)malloc(pieces_mem_size); // MEM
     int piece_num = torrent_data.info.length / torrent_data.info.piece_length;
 
-    struct ResourceQueue resource_queue; // MEM
+    struct ResourceQueue resource_queue;
     resource_queue_create(&resource_queue); 
     create_work(pieces_mem, &resource_queue, torrent_data.info.piece_length, BLOCK_SIZE, piece_num);
 
@@ -352,63 +519,48 @@ int download_torrent(uchar* bencode_torrent, int bencode_torrent_len)
             }
         }
 
-        // TODO: check if the message is a bitfield (now it assumes it is)
-
         struct Message bitfield_message;
         if(recv_message(local_socket, &bitfield_message) == -1)
         {
             return -1;
         }
 
-        // TODO: 'A bitfield of the wrong length is considered an error. Clients should drop the connection if they receive bitfields that are not of the correct size, or if the bitfield has any of the spare bits set.'
+        // expects a bitfield as a first message
+        if(bitfield_message.id != BITFIELD)
+        {
+            return 1; // didn't receive a bitfield message
+        }
+
+        int bitfield_len = bitfield_message.length - sizeof(bitfield_message.id);
+        if(check_bitfield_size_match_torrent_size(bitfield_message.payload, bitfield_len, pieces_mem_size) != 0)
+        {
+            print_nested(nesting, "%dB\n", bitfield_len * 8 * BLOCK_SIZE);
+            continue; // TEMP
+            // return 2; // bitfield size and torrent size are not matched
+        }
 
         print_nested(nesting, "Message: %s\n", MessageType_STR[bitfield_message.id]);
 
+        print_nested(nesting, "Searching for right resource for peer\n");\
+
         struct ResourceBlock resource_block;
 
-        print_nested(nesting, "Searching for piece\n");
-        
-        // TODO: continue to the next peer when the whole queue has been searched (check for the address of data_ptr)
-        uchar is_piece_available = 0;
-        while(is_piece_available == 0)
+        while(search_for_resource_for_peer(bitfield_message, resource_queue, &resource_block) == 0)
         {
-            resource_queue_pop(&resource_queue, &resource_block);
-            is_piece_available = get_bit_from_data(resource_block.piece_index, bitfield_message.payload);
+            print_nested(nesting, "Piece available\n");
 
-            if(is_piece_available == 0)
+            struct Message message;
+            for(int i = 0; message.id != UNCHOKE; i++)
             {
-                resource_queue_push(&resource_queue, resource_block);
+                if(recv_message(local_socket, &message) == -1)
+                {
+                    return -1;
+                }
+                print_nested(nesting, "Message: %s\n", MessageType_STR[message.id]);
             }
+
+            download_piece(local_socket, resource_block);
         }
-
-        print_nested(nesting, "Piece available\n");
-
-        struct Message message;
-        for(int i = 0; message.id != UNCHOKE; i++)
-        {
-            if(recv_message(local_socket, &message) == -1)
-            {
-                return -1;
-            }
-            print_nested(nesting, "Message: %s\n", MessageType_STR[message.id]);
-        }
-
-        struct Message request_message;
-        request_message.id = REQUEST;
-
-        uint32_t request_index_be = be32_swap_le32(resource_block.piece_index);
-        uint32_t request_begin_be = be32_swap_le32(resource_block.piece_offset);
-        uint32_t request_length_be = be32_swap_le32(resource_block.size);
-
-        request_message.length = sizeof(message.id) + sizeof(request_index_be) + sizeof(request_begin_be) + sizeof(request_length_be);
-        request_message.payload = (uchar*)malloc(sizeof(request_message.length) + request_message.length); // MEM
-
-        uint32_t request_message_length_be = be32_swap_le32(request_message.length);
-        memcpy(request_message.payload, request_message_length_be, sizeof(request_message_length_be));
-        
-        // TODO: construct the rest of the message, send request
-
-        // TODO: if cannot get this block: resource_queue_push()
 
         close(local_socket);
     }
@@ -425,9 +577,7 @@ int main(int argc, uchar *argv[])
 {
     srand(time(NULL)); // for random peer_id generation
 
-    FILE* torrent_file;
-    torrent_file = fopen("debian-12.6.0-i386-netinst.iso.torrent", "r");
-    
+    FILE* torrent_file = fopen("test.torrent", "r");
     if(torrent_file == NULL)
     {
         failure("open");
@@ -440,10 +590,11 @@ int main(int argc, uchar *argv[])
     printf("%s\n", bencode_torrent);
     b_print(bencode_torrent, bencode_torrent_len);
 
-    download_torrent(bencode_torrent, bencode_torrent_len);
+    printf("\n%d\n", download_file(bencode_torrent, bencode_torrent_len));
 
     return 0;
 }
+ 
  
 // TODO general
 // - add checking if HTTP response is "OK" and only then proceed to extract the bencode body
@@ -455,5 +606,8 @@ int main(int argc, uchar *argv[])
 // - when splitting functions into smaller -> reduce the names of variables to not include the function name (e.g. int request_index; ->split-> send_request() {int index; })
 // - when changing signed to unsigned check all references and if they are using subtraction
 // - when change ints and chars to unsigned when signed is not needed
+// - almost always expect a CHOKE message when receiving
+// - change returns of function from int to enum types (multiple functions can share an enum type where the enum values are named in an abstract way) (still use -1) and change integer values to enum names
+// - add a `filled` field to ResourceBlock that indicates a block is filled with data
 
 // MEM - (warning) - means that a variable / statement allocated heap memory that needs to be freed later

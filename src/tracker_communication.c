@@ -139,13 +139,19 @@ int tracker_get_peers(uchar* bencode_torrent, int bencode_str_len, uchar info_ha
 
     //// FIX variable names
     uchar remote_domain_name[MAX_STR_LEN];
-    int protocol_offset = strlen("http://");
-    int port_offset = strcspn(torrent_data.announce + protocol_offset, ":") + protocol_offset + 1;
-    int resource_offset = strcspn(torrent_data.announce + port_offset, "/") + port_offset + 1;
+    int remote_domain_offset = strlen("http://"); // announce + protocol_offset = domain[0]
+    int port_offset = strcspn(torrent_data.announce + remote_domain_offset, ":") + remote_domain_offset + 1; // announce + port_offset = port[0]
+    int resource_offset = strcspn(torrent_data.announce + port_offset, "/") + port_offset + 1; // announce + resource_port = resource[0]
     ////
 
-    int remote_domain_name_len = strlen(torrent_data.announce) - (port_offset - protocol_offset + 1); // make space for null terminator
-    strncpy(remote_domain_name, torrent_data.announce + protocol_offset, remote_domain_name_len); 
+    // http://abc:123/XYZ
+
+
+    // FIX 
+    int remote_domain_name_len = strlen(torrent_data.announce) - (port_offset - remote_domain_offset + 1); 
+    
+    
+    strncpy(remote_domain_name, torrent_data.announce + remote_domain_offset, remote_domain_name_len); 
     remote_domain_name[remote_domain_name_len] = '\0';
 
     uchar remote_port[MAX_STR_LEN];

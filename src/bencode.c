@@ -298,6 +298,7 @@ int b_get(uchar* path, uchar* str, int str_len, uchar* out)
         }
     }
 
+    // MEM err
     memcpy(out, str + offset, obj_len); // instead of strncpy, because strncpy stops at first `\x00`
     out[obj_len] = '\0';
 

@@ -22,7 +22,10 @@ void deserialize_bencode_torrent(struct TorrentData* torrent_data, uchar* bencod
     torrent_data->info.piece_length = atoi(info_piece_length_str);
 
     int number_of_pieces = torrent_data->info.length / torrent_data->info.piece_length; // == length of `pieces` object, but needs to calculated before serializing to allocate memory
+    
+    // MEM err
     torrent_data->info.pieces = (uchar*)malloc(SHA_DIGEST_LENGTH * number_of_pieces);
+    
     b_get("0.d|info|0.d|pieces|", bencode_str, bencode_str_len, torrent_data->info.pieces);
 }
 
@@ -92,6 +95,7 @@ void create_params(uchar* params_out, ...)
             sprintf(params_out, "%s&", params_out);
         }
         
+        // MEM err
         sprintf(params_out, "%s%s=%s", params_out, param_name, param_value);
     }
 }
@@ -137,19 +141,15 @@ int tracker_get_peers(uchar* bencode_torrent, int bencode_str_len, uchar info_ha
         printf("\n");
     )
 
-    //// FIX variable names
     uchar remote_domain_name[MAX_STR_LEN];
     int remote_domain_offset = strlen("http://"); // announce + protocol_offset = domain[0]
     int port_offset = strcspn(torrent_data.announce + remote_domain_offset, ":") + remote_domain_offset + 1; // announce + port_offset = port[0]
     int resource_offset = strcspn(torrent_data.announce + port_offset, "/") + port_offset + 1; // announce + resource_port = resource[0]
-    ////
 
-    // http://abc:123/XYZ
+    // e.g. http://abc:123/XYZ
 
-
-    // FIX 
-    int remote_domain_name_len = strlen(torrent_data.announce) - (port_offset - remote_domain_offset + 1); 
-    
+    // domain[n-1] - domain[0] + 1
+    int remote_domain_name_len = (port_offset - 2) - remote_domain_offset + 1; 
     
     strncpy(remote_domain_name, torrent_data.announce + remote_domain_offset, remote_domain_name_len); 
     remote_domain_name[remote_domain_name_len] = '\0';

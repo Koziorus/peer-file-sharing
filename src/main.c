@@ -610,4 +610,5 @@ int main(int argc, uchar *argv[])
 // - change returns of function from int to enum types (multiple functions can share an enum type where the enum values are named in an abstract way) (still use -1) and change integer values to enum names
 // - add a `filled` field to ResourceBlock that indicates a block is filled with data
 
-// MEM - (warning) - means that a variable / statement allocated heap memory that needs to be freed later
+// MEM - means that a variable / statement allocated heap memory that needs to be freed later
+// MEM err - memory error

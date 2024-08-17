@@ -15,7 +15,7 @@
         {
             "label": "Run Valgrind with GDB",
             "type": "shell",
-            "command": "valgrind --vgdb=yes --vgdb-error=0 ${command:cmake.launchTargetPath}",
+            "command": "stdbuf -i0 -o0 -e0 valgrind --vgdb=yes --vgdb-error=0 --leak-check=full ${command:cmake.launchTargetPath} 1> ${workspaceFolder}/build/valgrind_log", // run valgrind without need to flush stdio when writing stdout to file 
             "isBackground": true,
             "problemMatcher": [
                 {
@@ -27,7 +27,31 @@
                     }
                 }
             ],
-            "dependsOn": "CMake Build"
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Start log tail",
+                "CMake Build"
+            ]
+        }
+        ,
+        {
+            "label": "Start log tail",
+            "type": "shell",
+            "command": "echo VALGRIND_LOG > ${workspaceFolder}/build/valgrind_log; tail -f ${workspaceFolder}/build/valgrind_log",
+            "isBackground": true,
+            "presentation": {
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".", // needed for the launch.json to not wait for the task to finish
+                        "endsPattern": "." //
+                    }
+                }
+            ]
         }
     ]
 }

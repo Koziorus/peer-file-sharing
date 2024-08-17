@@ -52,4 +52,5 @@
         "unchoked"
     ],
     "C_Cpp.errorSquiggles": "enabled",
+    "cmake.configureOnOpen": true,
 }

@@ -5,7 +5,7 @@
           "name": "Debug with Valgrind and GDB",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/build/PeerFileSharing",
+          "program": "${command:cmake.launchTargetPath}",
           "args": [],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
@@ -19,24 +19,25 @@
           "MIMode": "gdb",
           "miDebuggerPath": "/usr/bin/gdb",
           "setupCommands": [
-              {
-                  "description": "Enable pretty-printing for gdb",
-                  "text": "-enable-pretty-printing",
-                  "ignoreFailures": true
-              }
-              ,
-              {
-                  "description": "Connect to Valgrind GDB server",
-                  "text": "target remote | vgdb" // works only when there is one valgrind running (otherwise use target remote | vgdb --pid=...)
-              }
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            }
+            ,
+            {
+                "description": "Connect to Valgrind GDB server",
+                "text": "target remote | vgdb" // works only when there is one valgrind running (otherwise use target remote | vgdb --pid=...)
+            }
           ],
           "preLaunchTask": "Run Valgrind with GDB",
           "miDebuggerArgs": "--interpreter=mi2",
-          // "logging": {
-          //     "engineLogging": true,
-          //     "trace": true,
-          //     "traceResponse": true
-          // }
+          "logging": {
+            //   "engineLogging": true,
+            //   "trace": true,
+            //   "traceResponse": true
+            // "programOutput": true
+          }
       }
   ]
 }

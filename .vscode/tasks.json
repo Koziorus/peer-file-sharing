@@ -15,20 +15,19 @@
         {
             "label": "Run Valgrind with GDB",
             "type": "shell",
-            "problemMatcher": [],
-            "dependsOrder": "sequence",
-            "dependsOn":
-            [
-                "CMake Build",
-                "Run Valgrind"
-            ]
-        },
-        {
-            "label": "Run Valgrind",
-            "type": "shell",
-            "command": "./valgrind_start.sh ${command:cmake.launchTargetPath}",
-            "problemMatcher": [],
-            "isBackground": true
+            "command": "valgrind --vgdb=yes --vgdb-error=0 ${command:cmake.launchTargetPath}",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "background": {
+                        "activeOnStart": false,
+                        "beginsPattern": "target remote | /usr/bin/vgdb", // needed for the launch.json to not wait for the task to finish
+                        "endsPattern": "target remote | /usr/bin/vgdb" //
+                    }
+                }
+            ],
+            "dependsOn": "CMake Build"
         }
     ]
 }

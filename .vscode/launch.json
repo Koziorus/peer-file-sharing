@@ -27,7 +27,7 @@
               ,
               {
                   "description": "Connect to Valgrind GDB server",
-                  "text": "target remote | vgdb"
+                  "text": "target remote | vgdb" // works only when there is one valgrind running (otherwise use target remote | vgdb --pid=...)
               }
           ],
           "preLaunchTask": "Run Valgrind with GDB",

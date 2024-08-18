@@ -26,7 +26,8 @@ void generate_rand_str(int n, uchar* out)
 
 void failure(char* function_name)
 {
-    fprintf(stderr, "%s() failed (%d) -> [%s]\n", function_name, errno, strerror(errno));
+    // stderr would print on the valgrind side, therefore stdout is used
+    fprintf(stdout, "%s() failed (%d) -> [%s]\n", function_name, errno, strerror(errno));
 
     exit(1);
 }

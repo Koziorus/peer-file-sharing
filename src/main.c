@@ -434,10 +434,10 @@ int download_piece(int local_socket, struct ResourceBlock resource_block)
 int download_file(uchar* bencode_torrent, int bencode_torrent_len)
 {
     // generate info_hash
-    uchar info_str[MAX_BENCODED_TORRENT_LEN];
-    int dict_str_len = b_get("0.d|info|", bencode_torrent, bencode_torrent_len, info_str);
+    uchar info_data[MAX_BENCODED_TORRENT_LEN];
+    int dict_str_len = b_get("0.d|info|", bencode_torrent, bencode_torrent_len, info_data, 0);
     uchar info_hash[SHA_DIGEST_LENGTH];
-    SHA1(info_str, dict_str_len, info_hash);
+    SHA1(info_data, dict_str_len, info_hash);
 
     // create a peer_id
     uchar local_peer_id[SHA_DIGEST_LENGTH];
@@ -577,7 +577,7 @@ int main(int argc, uchar *argv[])
 {
     srand(time(NULL)); // for random peer_id generation
 
-    FILE* torrent_file = fopen("test.torrent", "r");
+    FILE* torrent_file = fopen("debian-12.6.0-amd64-netinst.iso.torrent", "r");
     if(torrent_file == NULL)
     {
         failure("open");
@@ -612,3 +612,7 @@ int main(int argc, uchar *argv[])
 
 // MEM - means that a variable / statement allocated heap memory that needs to be freed later
 // MEM err - memory error
+
+// Conventions:
+// *_str means a string ending with a null terminator 
+// *_data means some kind of data string that doesn't have to end with a null terminator

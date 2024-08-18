@@ -241,9 +241,14 @@ int b_get_offset(uchar* path, uchar* str, int str_len)
     return offset;
 }
 
-int b_get(uchar* path, uchar* str, int str_len, uchar* out)
+int b_get(uchar* path, uchar* str, int str_len, uchar* out, uchar is_out_str)
 {
     int offset = b_get_offset(path, str, str_len);
+    if(offset >= str_len)
+    {
+        // provide message
+        return 0; // TEMP
+    }
 
     int obj_len;
     if(get_type(str[offset]) == INTEGER)
@@ -300,8 +305,12 @@ int b_get(uchar* path, uchar* str, int str_len, uchar* out)
 
     // MEM err
     memcpy(out, str + offset, obj_len); // instead of strncpy, because strncpy stops at first `\x00`
-    out[obj_len] = '\0';
 
+    if(is_out_str)
+    {
+        out[obj_len] = '\0';
+    }
+    
     return obj_len;
 }
 

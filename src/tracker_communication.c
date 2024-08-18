@@ -4,29 +4,31 @@
 // for a dictionary of files the `length` object is replaced with a `files` directory object -> (see bep_0003)
 void deserialize_bencode_torrent(struct TorrentData* torrent_data, uchar* bencode_str, int bencode_str_len)
 {
-    b_get("0.d|announce|", bencode_str, bencode_str_len, torrent_data->announce); 
-    b_get("0.d|comment|", bencode_str, bencode_str_len, torrent_data->comment); 
+    b_get("0.d|announce|", bencode_str, bencode_str_len, torrent_data->announce, 1); 
+    // b_get("0.d|comment|", bencode_str, bencode_str_len, torrent_data->comment); 
     
     uchar creation_date_str[MAX_STR_LEN];
-    b_get("0.d|creation date|", bencode_str, bencode_str_len, creation_date_str);
+    b_get("0.d|creation date|", bencode_str, bencode_str_len, creation_date_str, 1);
     torrent_data->creation_date = atoi(creation_date_str);
 
     uchar info_length_str[MAX_STR_LEN];
-    b_get("0.d|info|0.d|length|", bencode_str, bencode_str_len, info_length_str); 
+    b_get("0.d|info|0.d|length|", bencode_str, bencode_str_len, info_length_str, 1); 
     torrent_data->info.length = atoi(info_length_str);
 
-    b_get("0.d|info|0.d|name|", bencode_str, bencode_str_len, torrent_data->info.name);
+    b_get("0.d|info|0.d|name|", bencode_str, bencode_str_len, torrent_data->info.name, 1);
 
     uchar info_piece_length_str[MAX_STR_LEN];
-    b_get("0.d|info|0.d|piece length|", bencode_str, bencode_str_len, info_piece_length_str); 
+    b_get("0.d|info|0.d|piece length|", bencode_str, bencode_str_len, info_piece_length_str, 1); 
     torrent_data->info.piece_length = atoi(info_piece_length_str);
 
-    int number_of_pieces = torrent_data->info.length / torrent_data->info.piece_length; // == length of `pieces` object, but needs to calculated before serializing to allocate memory
+    // TODO: make sure that info.length is known as the exact size of the torrent file
+    // ceil(length / piece_length)
+    int number_of_pieces = (torrent_data->info.length + torrent_data->info.piece_length - 1) / torrent_data->info.piece_length; // == length of `pieces` object, but needs to calculated before serializing to allocate memory
     
     // MEM err
     torrent_data->info.pieces = (uchar*)malloc(SHA_DIGEST_LENGTH * number_of_pieces);
     
-    b_get("0.d|info|0.d|pieces|", bencode_str, bencode_str_len, torrent_data->info.pieces);
+    b_get("0.d|info|0.d|pieces|", bencode_str, bencode_str_len, torrent_data->info.pieces, 0);
 }
 
 void get_full_numeric_addr(uchar* data, uchar* addr_out, uchar* port_out)
@@ -79,6 +81,7 @@ void create_params(uchar* params_out, ...)
     va_list arg_list;
     va_start(arg_list, params_out);
 
+    uchar params[MAX_STR_LEN] = "";
     for(int i = 0; TRUE; i++)
     {
         uchar* param_name = va_arg(arg_list, uchar*);
@@ -92,12 +95,14 @@ void create_params(uchar* params_out, ...)
 
         if(i != 0)
         {
-            sprintf(params_out, "%s&", params_out);
+            sprintf(params, "%s&", params);
         }
         
         // MEM err
-        sprintf(params_out, "%s%s=%s", params_out, param_name, param_value);
+        sprintf(params, "%s%s=%s", params, param_name, param_value);
     }
+
+    strcpy(params_out, params);
 }
 
 // pass NULL as the last argument
@@ -106,6 +111,7 @@ void create_headers(uchar* headers_out, ...)
     va_list arg_list;
     va_start(arg_list, headers_out);
 
+    uchar headers[MAX_STR_LEN] = "";
     for(int i = 0; TRUE; i++)
     {
         uchar* header_name = va_arg(arg_list, uchar*);
@@ -119,11 +125,13 @@ void create_headers(uchar* headers_out, ...)
 
         if(i != 0)
         {
-            sprintf(headers_out, "%s\r\n", headers_out);
+            sprintf(headers, "%s\r\n", headers);
         }
 
-        sprintf(headers_out, "%s%s: %s", headers_out, header_name, header_value);
+        sprintf(headers, "%s%s: %s", headers, header_name, header_value);
     }
+
+    strcpy(headers_out, headers);
 }
 
 // connects to a tracker and gets peer addresses
@@ -180,7 +188,7 @@ int tracker_get_peers(uchar* bencode_torrent, int bencode_str_len, uchar info_ha
     http_explicit_hex(info_hash, SHA_DIGEST_LENGTH, info_hash_escaped);
     info_hash_escaped[sizeof(info_hash_escaped)] = '\0';
 
-    uchar peer_id_escaped[SHA_DIGEST_LENGTH * 3]; // for each bytes there is a '%' and 2 hex digits, at the end a null terminator
+    uchar peer_id_escaped[SHA_DIGEST_LENGTH * 3 + 1]; // for each bytes there is a '%' and 2 hex digits, at the end a null terminator
     http_explicit_hex(local_peer_id, SHA_DIGEST_LENGTH, peer_id_escaped);
     peer_id_escaped[sizeof(peer_id_escaped)] = '\0';
 
@@ -218,8 +226,18 @@ int tracker_get_peers(uchar* bencode_torrent, int bencode_str_len, uchar info_ha
     http_response_extract_body(response, bytes_received, body, &body_len);
     b_print(body, body_len);
 
+    // TODO: check if received correct body:
+    // there could be 404 error, redirection (300), ...
+    // received could have an unexpected shape
+
     char peers_addr_data[MAX_BENCODED_OTHER_LEN];
-    int peers_addr_data_len = b_get("0.d|peers|", body, bytes_received, peers_addr_data);
+    int peers_addr_data_len = b_get("0.d|peers|", body, body_len, peers_addr_data, 0);
+
+    // TEMP
+    if(peers_addr_data_len == 0)
+    {
+        failure("Getting `peers` from http body (NO ERRNO)");
+    }
 
     int peers_num = peers_addr_data_len / 6; // 6 bytes per ipv4 and port
     for(int i = 0; i < peers_num; i++)

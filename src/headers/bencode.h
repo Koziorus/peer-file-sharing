@@ -37,7 +37,7 @@ int b_skip_obj(ObjType object_type, uchar* str);
 
 int b_get_offset(uchar *path, uchar *str, int str_len);
 
-int b_get(uchar *path, uchar *str, int str_len, uchar *out); // gets offset after the jump to the next object
+int b_get(uchar* path, uchar* str, int str_len, uchar* out, uchar is_out_str); // gets offset after the jump to the next object
 // type - jump over every type but the specified
 // if initially str is at the right type, go to the next obj of this type
 int b_jump_to_type(ObjType type, uchar *str, int str_len, int ignore_flag);
